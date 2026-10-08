@@ -151,7 +151,7 @@ const Stream = ({ className = '', compact = false, isEpg = false, videoId = unde
         return (
             <div className={styles['context-menu-content']} onPointerDown={popupMenuOnPointerDown} onContextMenu={popupMenuOnContextMenu} onClick={popupMenuOnClick} onKeyDown={popupMenuOnKeyDown}>
                 <div className={styles['context-menu-title']}>
-                    {displayDescription}
+                    {displayName}
                 </div>
                 <Button className={styles['context-menu-option-container']} title={t('CTX_PLAY')} href={isEpg ? href : undefined} onClick={isEpg ? onClick : undefined}>
                     <Icon className={styles['menu-icon']} name={'play'} />
