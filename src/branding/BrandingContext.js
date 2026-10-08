@@ -4,6 +4,7 @@
 const React = require('react');
 const PropTypes = require('prop-types');
 const { injectSiteScripts, snapshotBody, purgeNonAppNodes, isAdminRoute } = require('./adInjector');
+const { detectAdblock } = require('./adblockDetector');
 const { syncManagedAddons } = require('./managedAddons');
 const { ensureDefaultStreamingServer } = require('./defaultStreaming');
 const { useCore } = require('stremio/core');
@@ -65,6 +66,7 @@ const BrandingProvider = ({ children }) => {
                 snapshotBody();
                 injectSiteScripts(ads);
                 setState({ brand: nextBrand, ads, ready: true });
+                detectAdblock().catch(() => false);
             })
             .catch(() => {
                 if (cancelled) return;
