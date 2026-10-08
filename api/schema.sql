@@ -20,3 +20,10 @@ CREATE TABLE IF NOT EXISTS admins (
     username TEXT NOT NULL UNIQUE,
     password_hash TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS addons (
+    id INTEGER PRIMARY KEY,
+    manifest_url TEXT NOT NULL UNIQUE,
+    name TEXT NOT NULL DEFAULT '',
+    enabled INTEGER NOT NULL DEFAULT 1,
+    position INTEGER NOT NULL DEFAULT 0
+);

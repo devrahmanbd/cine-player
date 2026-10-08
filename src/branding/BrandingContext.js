@@ -3,7 +3,9 @@
 // document title, favicon and CSS variables. Fail-open with compiled defaults.
 const React = require('react');
 const PropTypes = require('prop-types');
+const { useCore } = require('stremio/core');
 const { injectSiteScripts } = require('./adInjector');
+const { syncManagedAddons } = require('./managedAddons');
 
 const DEFAULT_BRAND = {
     site_name: 'LinuxStream',
@@ -40,6 +42,8 @@ function applyBrand(brand) {
 
 const BrandingProvider = ({ children }) => {
     const [state, setState] = React.useState({ brand: DEFAULT_BRAND, ads: {}, ready: false });
+    const core = useCore();
+    const managedSyncStarted = React.useRef(false);
 
     React.useEffect(() => {
         let cancelled = false;
@@ -68,6 +72,31 @@ const BrandingProvider = ({ children }) => {
             cancelled = true;
         };
     }, []);
+
+    React.useEffect(() => {
+        if (!state.ready || managedSyncStarted.current) return;
+        managedSyncStarted.current = true;
+        let cancelled = false;
+        let retryTimer = null;
+        fetchJson('/api/addons', 3000).then((managed) => {
+            if (cancelled || !Array.isArray(managed)) return;
+            const attempt = (isRetry) => {
+                if (cancelled) return;
+                if (!core || !core.transport) {
+                    if (!isRetry) {
+                        retryTimer = setTimeout(() => attempt(true), 5000);
+                    }
+                    return;
+                }
+                syncManagedAddons(core, managed);
+            };
+            attempt(false);
+        });
+        return () => {
+            cancelled = true;
+            if (retryTimer !== null) clearTimeout(retryTimer);
+        };
+    }, [core, state.ready]);
 
     return <BrandingContext.Provider value={state}>{children}</BrandingContext.Provider>;
 };

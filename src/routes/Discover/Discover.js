@@ -13,7 +13,7 @@ const screenSizes = require('stremio/common/screen-sizes.less');
 const { default: getMetaDetailsHref } = require('stremio/common/getMetaDetailsHref');
 const { useRouteActive } = require('stremio/common/useRouteFocused');
 const { useNavigateWithOrigin } = require('stremio-router');
-const { AddonDetailsModal, Button, DelayedRenderer, Image, MainNavBars, MetaItem, MetaPreview, ModalDialog, MultiselectMenu } = require('stremio/components');
+const { Button, DelayedRenderer, Image, MainNavBars, MetaItem, MetaPreview, ModalDialog, MultiselectMenu } = require('stremio/components');
 const { default: MetaPreviewSheet } = require('stremio/components/MetaPreviewSheet');
 const { default: EpgProgramModal } = require('stremio/components/EpgProgramModal');
 const useDiscover = require('./useDiscover');
@@ -56,7 +56,6 @@ const Discover = () => {
     const selectedTypeOption = selectInputs[0].options.find(({ value }) => value === selectInputs[0].value);
     const selectedCatalogOption = selectInputs[1].options.find(({ value }) => value === selectInputs[1].value);
     const activeFilterCount = selectInputs.filter(({ active }) => active).length;
-    const [addonModalOpen, openAddonModal, closeAddonModal] = useBinaryState(false);
     const [mobilePreviewOpen, openMobilePreview, closeMobilePreview] = useBinaryState(false);
     const [selectedMetaItemIndex, setSelectedMetaItemIndex] = React.useState(0);
     const isMobile = useMediaQuery(`(max-width: ${screenSizes.xsmall})`);
@@ -187,11 +186,10 @@ const Discover = () => {
     const onScroll = useOnScrollToBottom(onScrollToBottom, SCROLL_TO_BOTTOM_THRESHOLD);
     React.useEffect(() => {
         if (!isMobile) closeFilters();
-        closeAddonModal();
         closeMobilePreview();
         setSelectedMetaItemIndex(0);
         setSelectedEpgProgram(null);
-    }, [discover.selected, isMobile, closeFilters, closeAddonModal, closeMobilePreview]);
+    }, [discover.selected, isMobile, closeFilters, closeMobilePreview]);
     const renderEmptyState = () => (
         <DelayedRenderer delay={500}>
             <div className={styles['message-container']}>
@@ -390,9 +388,6 @@ const Discover = () => {
                         discover.catalog !== null && !discover.catalog.installed ?
                             <div className={styles['missing-addon-warning-container']}>
                                 <div className={styles['warning-label']}>{t('ERR_ADDON_NOT_INSTALLED')}</div>
-                                <Button className={styles['install-button']} title={t('INSTALL_ADDON')} onClick={openAddonModal}>
-                                    <div className={styles['label']}>{t('ADDON_INSTALL')}</div>
-                                </Button>
                             </div>
                             :
                             null
@@ -446,12 +441,6 @@ const Discover = () => {
                             />
                         ))}
                     </ModalDialog>
-                    :
-                    null
-            }
-            {
-                addonModalOpen && discover.selected !== null ?
-                    <AddonDetailsModal transportUrl={discover.selected.request.base} onCloseRequest={closeAddonModal} />
                     :
                     null
             }

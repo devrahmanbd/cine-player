@@ -59,6 +59,63 @@ function send(response, status, body, headers = {}) {
     response.end(payload);
 }
 
+const MANIFEST_MAX_BYTES = 256 * 1024;
+
+async function fetchManifest(manifestUrl) {
+    let parsed;
+    try {
+        parsed = new URL(manifestUrl);
+    } catch {
+        throw Object.assign(new Error('bad manifest_url'), { status: 400 });
+    }
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+        throw Object.assign(new Error('bad manifest_url'), { status: 400 });
+    }
+    let response;
+    try {
+        response = await fetch(manifestUrl, { signal: AbortSignal.timeout(5000) });
+    } catch {
+        throw Object.assign(new Error('bad manifest'), { status: 400 });
+    }
+    if (!response.ok) {
+        throw Object.assign(new Error('bad manifest'), { status: 400 });
+    }
+    const lengthHeader = response.headers.get('content-length');
+    if (lengthHeader && Number(lengthHeader) > MANIFEST_MAX_BYTES) {
+        try {
+            await response.arrayBuffer();
+        } catch {}
+        throw Object.assign(new Error('manifest too large'), { status: 400 });
+    }
+    let buffer;
+    try {
+        buffer = Buffer.from(await response.arrayBuffer());
+    } catch {
+        throw Object.assign(new Error('bad manifest'), { status: 400 });
+    }
+    if (buffer.length > MANIFEST_MAX_BYTES) {
+        throw Object.assign(new Error('manifest too large'), { status: 400 });
+    }
+    let manifest;
+    try {
+        manifest = JSON.parse(buffer.toString('utf8'));
+    } catch {
+        throw Object.assign(new Error('bad manifest'), { status: 400 });
+    }
+    if (!manifest || typeof manifest.id !== 'string' || typeof manifest.name !== 'string') {
+        throw Object.assign(new Error('bad manifest'), { status: 400 });
+    }
+    return manifest;
+}
+
+function parseAddonId(pathname) {
+    const match = /^\/api\/addons\/([^/]+)$/.exec(pathname);
+    if (!match) return null;
+    const id = Number(match[1]);
+    if (!Number.isInteger(id) || id <= 0) return null;
+    return id;
+}
+
 function startServer({ port = 3001, db, uploadsDir } = {}) {
     const sessions = new Map();
     // Single-instance sessions: in-memory Map (restart logs admins out).
@@ -122,6 +179,88 @@ function startServer({ port = 3001, db, uploadsDir } = {}) {
                     body.slot_key,
                 ]);
                 return send(response, 200, { slot_key: body.slot_key, enabled, code: body.code });
+            }
+
+            if (request.method === 'GET' && url.pathname === '/api/addons') {
+                const rows = await db.query(
+                    'SELECT id, manifest_url, name, position FROM addons WHERE enabled = 1 ORDER BY position ASC, id ASC'
+                );
+                return send(response, 200, rows);
+            }
+
+            if (request.method === 'POST' && url.pathname === '/api/addons') {
+                if (!authed) return send(response, 401, { error: 'unauthorized' });
+                const body = await readJson(request, 64 * 1024);
+                if (typeof body.manifest_url !== 'string' || body.manifest_url.length === 0) {
+                    return send(response, 400, { error: 'bad manifest_url' });
+                }
+                const existing = await db.query('SELECT id FROM addons WHERE manifest_url = ?', [
+                    body.manifest_url,
+                ]);
+                if (existing.length > 0) return send(response, 409, { error: 'already exists' });
+                let manifest;
+                try {
+                    manifest = await fetchManifest(body.manifest_url);
+                } catch (error) {
+                    return send(response, error.status || 400, { error: error.message || 'bad manifest' });
+                }
+                try {
+                    await db.query('INSERT INTO addons (manifest_url, name, enabled, position) VALUES (?, ?, 1, 0)', [
+                        body.manifest_url,
+                        manifest.name,
+                    ]);
+                } catch (error) {
+                    if (/UNIQUE|unique|duplicate|ER_DUP_ENTRY/i.test(error.message || '')) {
+                        return send(response, 409, { error: 'already exists' });
+                    }
+                    throw error;
+                }
+                const rows = await db.query(
+                    'SELECT id, manifest_url, name, position FROM addons WHERE manifest_url = ?',
+                    [body.manifest_url]
+                );
+                return send(response, 200, rows[0]);
+            }
+
+            if (request.method === 'PUT' && url.pathname.startsWith('/api/addons/')) {
+                if (!authed) return send(response, 401, { error: 'unauthorized' });
+                const addonId = parseAddonId(url.pathname);
+                if (addonId === null) return send(response, 404, { error: 'not found' });
+                const body = await readJson(request, 64 * 1024);
+                const sets = [];
+                const params = [];
+                if ('enabled' in body) {
+                    if (typeof body.enabled !== 'boolean') return send(response, 400, { error: 'bad enabled' });
+                    sets.push('enabled = ?');
+                    params.push(body.enabled ? 1 : 0);
+                }
+                if ('position' in body) {
+                    if (typeof body.position !== 'number' || !Number.isFinite(body.position)) {
+                        return send(response, 400, { error: 'bad position' });
+                    }
+                    sets.push('position = ?');
+                    params.push(Math.trunc(body.position));
+                }
+                if (sets.length === 0) return send(response, 400, { error: 'nothing to update' });
+                const found = await db.query('SELECT id FROM addons WHERE id = ?', [addonId]);
+                if (found.length === 0) return send(response, 404, { error: 'not found' });
+                params.push(addonId);
+                await db.query(`UPDATE addons SET ${sets.join(', ')} WHERE id = ?`, params);
+                const rows = await db.query(
+                    'SELECT id, manifest_url, name, enabled, position FROM addons WHERE id = ?',
+                    [addonId]
+                );
+                return send(response, 200, rows[0]);
+            }
+
+            if (request.method === 'DELETE' && url.pathname.startsWith('/api/addons/')) {
+                if (!authed) return send(response, 401, { error: 'unauthorized' });
+                const addonId = parseAddonId(url.pathname);
+                if (addonId === null) return send(response, 404, { error: 'not found' });
+                const found = await db.query('SELECT id FROM addons WHERE id = ?', [addonId]);
+                if (found.length === 0) return send(response, 404, { error: 'not found' });
+                await db.query('DELETE FROM addons WHERE id = ?', [addonId]);
+                return send(response, 200, { ok: true });
             }
 
             if (request.method === 'POST' && url.pathname === '/api/admin/login') {

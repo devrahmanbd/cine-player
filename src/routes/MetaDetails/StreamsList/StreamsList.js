@@ -30,9 +30,6 @@ const StreamsList = ({ className, video, type, externalPlayerCallbackCanMarkWatc
         streamsContainerRef.current.scrollTo({ top: 0, left: 0, behavior: platform.name === 'ios' ? 'smooth' : 'instant' });
         setSelectedAddon(value);
     }, [platform]);
-    const showInstallAddonsButton = React.useMemo(() => {
-        return !profile || profile.auth === null || profile.auth?.user?.isNewUser === true && !video?.upcoming;
-    }, [profile, video]);
     const backButtonOnClick = React.useCallback(() => {
         if (video.deepLinks && typeof video.deepLinks.metaDetailsVideos === 'string') {
             const navigateTo = `${video.deepLinks.metaDetailsVideos}${
@@ -163,15 +160,6 @@ const StreamsList = ({ className, video, type, externalPlayerCallbackCanMarkWatc
                             }
                             <Image className={styles['image']} src={require('/assets/images/empty.png')} alt={' '} />
                             <div className={styles['label']}>{t('NO_STREAM')}</div>
-                            {
-                                showInstallAddonsButton ?
-                                    <Button className={styles['install-button-container']} title={t('ADDON_CATALOGUE_MORE')} href={'#/addons'}>
-                                        <Icon className={styles['icon']} name={'addons'} />
-                                        <div className={styles['label']}>{t('ADDON_CATALOGUE_MORE')}</div>
-                                    </Button>
-                                    :
-                                    null
-                            }
                         </div>
                         :
                         filteredStreams.length === 0 ?
@@ -197,15 +185,6 @@ const StreamsList = ({ className, video, type, externalPlayerCallbackCanMarkWatc
                                             onClick={stream.onClick}
                                         />
                                     ))}
-                                    {
-                                        showInstallAddonsButton ?
-                                            <Button className={styles['install-button-container']} title={t('ADDON_CATALOGUE_MORE')} href={'#/addons'}>
-                                                <Icon className={styles['icon']} name={'addons'} />
-                                                <div className={styles['label']}>{t('ADDON_CATALOGUE_MORE')}</div>
-                                            </Button>
-                                            :
-                                            null
-                                    }
                                 </div>
                                 {
                                     countLoadingAddons > 0 ?

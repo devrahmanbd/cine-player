@@ -22,7 +22,7 @@ const Dock = require('../components/LinuxChrome/Dock');
 require('../components/LinuxChrome/linux-vars.less');
 
 const ProtectedRoutes = withCoreSuspender(Routes);
-const NAVIGATE_TABS_ROUTES = ['/', '/discover', '/library', '/calendar', '/addons', '/settings'];
+const NAVIGATE_TABS_ROUTES = ['/', '/discover', '/library', '/calendar', '/settings'];
 
 const App = () => {
     const core = useCore();

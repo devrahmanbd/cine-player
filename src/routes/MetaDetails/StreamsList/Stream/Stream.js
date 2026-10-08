@@ -11,6 +11,7 @@ const { Button, Image, Popup } = require('stremio/components');
 const ActionButton = require('stremio/components/MetaPreview/ActionButton');
 const { default: useRouteFocused } = require('stremio/common/useRouteFocused');
 const StreamPlaceholder = require('./StreamPlaceholder');
+const { maskStreamName } = require('../../../../branding/streamNames');
 const styles = require('./styles');
 
 const Stream = ({ className = '', compact = false, isEpg = false, videoId = undefined, videoReleased = undefined, addonName, name, description, thumbnail = undefined, progress, deepLinks, externalPlayerCallbackCanMarkWatched, ...props }) => {
@@ -206,19 +207,21 @@ const Stream = ({ className = '', compact = false, isEpg = false, videoId = unde
         <Icon className={styles['placeholder-icon']} name={'ic_broken_link'} />
     ), []);
 
+    const displayName = maskStreamName(name || addonName);
+
     const renderLabel = React.useMemo(() => function renderLabel({ className, children, ...props }) {
         if (compact) {
-            return <ActionButton className={classnames(className, styles['stream-action'])} icon={'play'} label={name || addonName} variant={'wide'} href={href} target={target} download={download} onClick={onClick} {...props}>
+            return <ActionButton className={classnames(className, styles['stream-action'])} icon={'play'} label={displayName} variant={'wide'} href={href} target={target} download={download} onClick={onClick} {...props}>
                 {children}
             </ActionButton>;
         }
 
         return (
-            <Button className={classnames(className, styles['stream-container'], { 'active': menuOpen })} title={addonName} href={href} target={target} download={download} onClick={onClick} {...props}>
+            <Button className={classnames(className, styles['stream-container'], { 'active': menuOpen })} title={displayName} href={href} target={target} download={download} onClick={onClick} {...props}>
                 <div className={styles['info-container']}>
                     {
                         typeof thumbnail === 'string' && thumbnail.length > 0 ?
-                            <div className={styles['thumbnail-container']} title={name || addonName}>
+                            <div className={styles['thumbnail-container']} title={displayName}>
                                 <Image
                                     className={styles['thumbnail']}
                                     src={thumbnail}
@@ -227,8 +230,8 @@ const Stream = ({ className = '', compact = false, isEpg = false, videoId = unde
                                 />
                             </div>
                             :
-                            <div className={styles['addon-name-container']} title={name || addonName}>
-                                <div className={styles['addon-name']}>{name || addonName}</div>
+                            <div className={styles['addon-name-container']} title={displayName}>
+                                <div className={styles['addon-name']}>{displayName}</div>
                             </div>
                     }
                     {
@@ -246,7 +249,7 @@ const Stream = ({ className = '', compact = false, isEpg = false, videoId = unde
                 {children}
             </Button>
         );
-    }, [compact, thumbnail, progress, addonName, name, description, href, target, download, onClick, menuOpen]);
+    }, [compact, thumbnail, progress, displayName, description, href, target, download, onClick, menuOpen]);
 
     const renderMenu = React.useMemo(() => function renderMenu() {
         return (

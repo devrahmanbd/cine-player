@@ -23,6 +23,21 @@ const STR = {
     saveFailed: 'Save failed (session expired? log in again).',
     uploads: 'Uploads',
     reloaded: 'Reload the site to see changes.',
+    addonsTitle: 'Addons',
+    addonUrl: 'Addon manifest URL',
+    addAddon: 'Add addon',
+    enable: 'Enabled',
+    remove: 'Remove',
+    moveUp: 'Move up',
+    moveDown: 'Move down',
+    failedLoadAddons: 'Failed to load addons',
+    addonAdded: 'Addon added.',
+    addFailed: 'Add failed.',
+    addonRemoved: 'Addon removed.',
+    removeFailed: 'Remove failed.',
+    updateFailed: 'Update failed.',
+    confirmRemove: 'Remove this addon?',
+    noAddons: 'No addons yet.',
 };
 
 const BRAND_FIELDS = ['site_name', 'tagline', 'logo_url', 'favicon_url', 'theme', 'accent'];
@@ -184,6 +199,97 @@ const UploadsForm = () => {
     );
 };
 
+const AddonsForm = () => {
+    const [addons, setAddons] = React.useState(null);
+    const [status, setStatus] = React.useState('');
+    const [url, setUrl] = React.useState('');
+    React.useEffect(() => {
+        api('/api/addons').then(setAddons).catch(() => setStatus(STR.failedLoadAddons));
+    }, []);
+    const add = async () => {
+        setStatus('');
+        try {
+            const created = await api('/api/addons', { method: 'POST', body: JSON.stringify({ manifest_url: url }) });
+            setAddons((prev) => (prev ? [...prev, created] : [created]));
+            setUrl('');
+            setStatus(STR.addonAdded);
+        } catch (err) {
+            setStatus(`${STR.addFailed} ${err.message}`);
+        }
+    };
+    const toggle = async (addon, enabled) => {
+        setStatus('');
+        try {
+            const updated = await api(`/api/addons/${addon.id}`, { method: 'PUT', body: JSON.stringify({ enabled }) });
+            const nextEnabled = updated.enabled !== undefined ? updated.enabled : enabled;
+            setAddons((prev) => prev.map((item) => (item.id === addon.id ? { ...item, enabled: nextEnabled } : item)));
+        } catch {
+            setStatus(STR.updateFailed);
+        }
+    };
+    const move = async (index, delta) => {
+        const neighbor = index + delta;
+        if (!addons || neighbor < 0 || neighbor >= addons.length) return;
+        const current = addons[index];
+        const other = addons[neighbor];
+        setStatus('');
+        try {
+            const currentPos = current.position !== undefined ? current.position : index;
+            const otherPos = other.position !== undefined ? other.position : neighbor;
+            await api(`/api/addons/${current.id}`, { method: 'PUT', body: JSON.stringify({ position: otherPos }) });
+            await api(`/api/addons/${other.id}`, { method: 'PUT', body: JSON.stringify({ position: currentPos }) });
+            setAddons((prev) => {
+                const next = [...prev];
+                next[index] = other;
+                next[neighbor] = current;
+                return next;
+            });
+        } catch {
+            setStatus(STR.updateFailed);
+        }
+    };
+    const remove = async (addon) => {
+        if (!window.confirm(STR.confirmRemove)) return;
+        setStatus('');
+        try {
+            await api(`/api/addons/${addon.id}`, { method: 'DELETE' });
+            setAddons((prev) => prev.filter((item) => item.id !== addon.id));
+            setStatus(STR.addonRemoved);
+        } catch {
+            setStatus(STR.removeFailed);
+        }
+    };
+    if (addons === null) return <div>{status || STR.loading}</div>;
+    return (
+        <div>
+            <h2>{STR.addonsTitle}</h2>
+            {addons.length === 0 ? <div>{STR.noAddons}</div> : null}
+            {addons.map((addon, index) => (
+                <div key={addon.id} className={'admin-slot'}>
+                    <span>{addon.name}</span>
+                    <span>{addon.manifest_url}</span>
+                    <label>
+                        <input
+                            type={'checkbox'}
+                            checked={!!addon.enabled}
+                            onChange={(e) => toggle(addon, e.target.checked)}
+                        />
+                        {STR.enable}
+                    </label>
+                    <button onClick={() => move(index, -1)} disabled={index === 0}>{STR.moveUp}</button>
+                    <button onClick={() => move(index, 1)} disabled={index === addons.length - 1}>{STR.moveDown}</button>
+                    <button onClick={() => remove(addon)}>{STR.remove}</button>
+                </div>
+            ))}
+            <div>
+                <input value={url} placeholder={STR.addonUrl} onChange={(e) => setUrl(e.target.value)} />
+                <button onClick={add}>{STR.addAddon}</button>
+            </div>
+            {status ? <div className={'admin-status'}>{status}</div> : null}
+        </div>
+    );
+};
+
 const Admin = () => {
     const [authed, setAuthed] = React.useState(null);
     const [tab, setTab] = React.useState('brand');
@@ -207,7 +313,7 @@ const Admin = () => {
         <div className={'admin-page'}>
             <h1>{STR.siteAdmin}</h1>
             <div className={'admin-tabs'}>
-                {['brand', 'ads', 'uploads'].map((name) => (
+                {['brand', 'ads', 'uploads', 'addons'].map((name) => (
                     <button key={name} className={tab === name ? 'admin-active' : ''} onClick={() => setTab(name)}>
                         {name}
                     </button>
@@ -217,6 +323,7 @@ const Admin = () => {
             {tab === 'brand' ? <BrandForm /> : null}
             {tab === 'ads' ? <AdsForm /> : null}
             {tab === 'uploads' ? <UploadsForm /> : null}
+            {tab === 'addons' ? <AddonsForm /> : null}
         </div>
     );
 };
