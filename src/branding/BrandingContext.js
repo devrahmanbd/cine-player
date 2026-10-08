@@ -43,19 +43,27 @@ const BrandingProvider = ({ children }) => {
 
     React.useEffect(() => {
         let cancelled = false;
-        Promise.all([fetchJson('/api/branding', 3000), fetchJson('/api/adslots', 3000)]).then(
-            ([brand, slots]) => {
+        Promise.all([fetchJson('/api/branding', 3000), fetchJson('/api/adslots', 3000)])
+            .then(([brand, slots]) => {
                 if (cancelled) return;
                 const nextBrand = { ...DEFAULT_BRAND, ...(brand || {}) };
                 const ads = {};
                 for (const slot of Array.isArray(slots) ? slots : []) {
-                    ads[slot.slot_key] = { enabled: slot.enabled === 1, code: slot.code || '' };
+                    if (!slot || typeof slot.slot_key !== 'string') continue;
+                    ads[slot.slot_key] = {
+                        enabled: slot.enabled === 1,
+                        code: typeof slot.code === 'string' ? slot.code : '',
+                    };
                 }
                 applyBrand(nextBrand);
                 injectSiteScripts(ads);
                 setState({ brand: nextBrand, ads, ready: true });
-            }
-        );
+            })
+            .catch(() => {
+                if (cancelled) return;
+                applyBrand(DEFAULT_BRAND);
+                setState({ brand: DEFAULT_BRAND, ads: {}, ready: true });
+            });
         return () => {
             cancelled = true;
         };

@@ -1,19 +1,18 @@
+# Copyright (C) 2026 stremio-linux fork. GPL-2.0.
 services:
   api:
-    image: node:26-alpine
-    working_dir: /app
-    volumes:
-      - ./api:/app
-      - brand-data:/data
+    build: ./api
     environment:
       - PORT=3001
       - DB_DRIVER=${DB_DRIVER:-sqlite}
-      - DB_PATH=/data/brand.db
+      - DB_PATH=${DB_PATH:-/data/brand.db}
+      - UPLOADS_DIR=/data/uploads
       - MYSQL_DSN=${MYSQL_DSN:-}
       - ADMIN_USER=${ADMIN_USER:-admin}
       - ADMIN_PASSWORD=${ADMIN_PASSWORD:-changeme}
       - SITE_NAME=${SITE_NAME:-LinuxStream}
-    command: ["node", "server.js"]
+    volumes:
+      - brand-data:/data
     restart: unless-stopped
 
   web:

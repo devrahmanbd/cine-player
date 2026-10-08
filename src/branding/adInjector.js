@@ -7,24 +7,30 @@ function scriptSrcFromCode(code) {
     return match ? match[1] : null;
 }
 
-function injectOnce(slotKey, target, src) {
-    if (!src || document.querySelector(`script[data-adslot="${slotKey}"]`)) return;
+function injectOnce(slotKey, target, make) {
+    if (document.querySelector(`script[data-adslot="${slotKey}"]`)) return;
     const script = document.createElement('script');
-    script.setAttribute('src', src);
     script.setAttribute('data-cfasync', 'false');
     script.setAttribute('data-adslot', slotKey);
+    script.async = true;
+    script.onerror = () => script.remove();
+    make(script);
     target.appendChild(script);
 }
 
 function injectSiteScripts(ads = {}) {
     try {
         const popunder = ads.popunder;
-        if (popunder && popunder.enabled) {
-            injectOnce('popunder', document.head, scriptSrcFromCode(popunder.code));
+        if (popunder && popunder.enabled && typeof popunder.code === 'string' && popunder.code) {
+            const src = scriptSrcFromCode(popunder.code);
+            if (src) injectOnce('popunder', document.head, (s) => s.setAttribute('src', src));
+            else injectOnce('popunder', document.head, (s) => { s.text = popunder.code; });
         }
         const socialbar = ads.socialbar;
-        if (socialbar && socialbar.enabled) {
-            injectOnce('socialbar', document.body, scriptSrcFromCode(socialbar.code));
+        if (socialbar && socialbar.enabled && typeof socialbar.code === 'string' && socialbar.code) {
+            const src = scriptSrcFromCode(socialbar.code);
+            if (src) injectOnce('socialbar', document.body, (s) => s.setAttribute('src', src));
+            else injectOnce('socialbar', document.body, (s) => { s.text = socialbar.code; });
         }
     } catch {
         // Adblock or CSP: fail silent, never break the app.
@@ -33,7 +39,8 @@ function injectSiteScripts(ads = {}) {
 
 function getSmartlink(ads = {}) {
     const slot = ads.smartlink;
-    if (slot && slot.enabled && /^https:\/\//.test(slot.code.trim())) return slot.code.trim();
+    const raw = String((slot && slot.code) || '').trim();
+    if (slot && slot.enabled && /^https:\/\//.test(raw)) return raw;
     return null;
 }
 

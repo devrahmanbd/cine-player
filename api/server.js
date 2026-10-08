@@ -1,4 +1,6 @@
-// Zero-dependency branding API: health, branding, adslots, admin auth, uploads.
+// Copyright (C) 2026 stremio-linux fork. GPL-2.0.
+// Zero-dependency branding API (except optional mysql2 when DB_DRIVER=mysql):
+// health, branding, adslots, admin auth, uploads.
 const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -59,7 +61,9 @@ function send(response, status, body, headers = {}) {
 
 function startServer({ port = 3001, db, uploadsDir } = {}) {
     const sessions = new Map();
-    const uploads = uploadsDir || path.join(__dirname, 'uploads');
+    // Single-instance sessions: in-memory Map (restart logs admins out).
+    // Past 1 replica needs sticky sessions or a shared store.
+    const uploads = uploadsDir || process.env.UPLOADS_DIR || path.join(__dirname, 'uploads');
     fs.mkdirSync(uploads, { recursive: true });
 
     const server = http.createServer(async (request, response) => {
@@ -117,7 +121,7 @@ function startServer({ port = 3001, db, uploadsDir } = {}) {
                     body.code,
                     body.slot_key,
                 ]);
-                return send(response, 200, { slot_key: body.slot_key, enabled });
+                return send(response, 200, { slot_key: body.slot_key, enabled, code: body.code });
             }
 
             if (request.method === 'POST' && url.pathname === '/api/admin/login') {

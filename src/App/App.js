@@ -34,6 +34,7 @@ const App = () => {
     const navigate = useNavigate();
     const goBack = useGoBack();
     const locationPath = createPath(location);
+    const isPlayer = locationPath === '/player' || locationPath.startsWith('/player/') || locationPath.startsWith('/player?');
     const previousPathRef = React.useRef(locationPath);
     const [gamepadSupportEnabled, setGamepadSupportEnabled] = React.useState(false);
     const services = React.useMemo(() => {
@@ -177,13 +178,20 @@ const App = () => {
                                     <DeepLinkHandler />
                                     <ShellOpenHandler />
                                     <UpdaterBanner className={styles['updater-banner-container']} />
-                                    <SystemPanel />
-                                    <div className={'lx-shell'}>
-                                        <Dock />
-                                        <div className={'lx-view'}>
+                                    {
+                                        isPlayer ?
                                             <ProtectedRoutes />
-                                        </div>
-                                    </div>
+                                            :
+                                            <React.Fragment>
+                                                <SystemPanel />
+                                                <div className={'lx-shell'}>
+                                                    <Dock />
+                                                    <div className={'lx-view'}>
+                                                        <ProtectedRoutes />
+                                                    </div>
+                                                </div>
+                                            </React.Fragment>
+                                    }
                                 </DiscordProvider>
                             </FullscreenProvider>
                         </ShortcutsProvider>

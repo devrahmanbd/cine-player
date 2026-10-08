@@ -1,3 +1,4 @@
+// Copyright (C) 2026 stremio-linux fork. GPL-2.0.
 const { describe, it, before, after } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');

@@ -1,3 +1,4 @@
+// Copyright (C) 2026 stremio-linux fork. GPL-2.0.
 // Seed: schema + default brand + 10 Adsterra slots + admin (scrypt hash).
 const fs = require('node:fs');
 const path = require('node:path');

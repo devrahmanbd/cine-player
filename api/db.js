@@ -1,3 +1,4 @@
+// Copyright (C) 2026 stremio-linux fork. GPL-2.0.
 // Driver abstraction: SQLite (default, node:sqlite) or MySQL (mysql2, dynamic require).
 // Portable interface: query(sql, params) -> rows array for SELECT, info object otherwise.
 function openDb() {

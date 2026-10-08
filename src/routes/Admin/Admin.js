@@ -29,6 +29,7 @@ const BRAND_FIELDS = ['site_name', 'tagline', 'logo_url', 'favicon_url', 'theme'
 
 async function api(path, options = {}) {
     const response = await fetch(path, {
+        credentials: 'same-origin',
         ...options,
         headers: { 'content-type': 'application/json', ...(options.headers || {}) },
     });
@@ -130,7 +131,7 @@ const AdsForm = () => {
                     </label>
                     <textarea
                         rows={4}
-                        value={slot.code}
+                        value={slot.code || ''}
                         onChange={(e) =>
                             setSlots(slots.map((s) => (s.slot_key === slot.slot_key ? { ...s, code: e.target.value } : s)))
                         }
@@ -148,6 +149,17 @@ const UploadsForm = () => {
     const upload = async (event) => {
         const file = event.target.files[0];
         if (!file) return;
+        const ext = `.${file.name.split('.').pop().toLowerCase()}`;
+        if (!['.png', '.jpg', '.jpeg', '.svg', '.ico'].includes(ext)) {
+            setStatus('Rejected: png/jpg/svg/ico only.');
+            event.target.value = '';
+            return;
+        }
+        if (file.size > 2 * 1024 * 1024) {
+            setStatus('Rejected: file too large (max 2MB).');
+            event.target.value = '';
+            return;
+        }
         setStatus('Uploading…');
         const data = await new Promise((resolve, reject) => {
             const reader = new FileReader();
@@ -161,6 +173,7 @@ const UploadsForm = () => {
         } catch {
             setStatus('Upload failed (png/jpg/svg/ico, max 2MB).');
         }
+        event.target.value = '';
     };
     return (
         <div>
@@ -195,7 +208,7 @@ const Admin = () => {
             <h1>{STR.siteAdmin}</h1>
             <div className={'admin-tabs'}>
                 {['brand', 'ads', 'uploads'].map((name) => (
-                    <button key={name} className={tab === name ? 'active' : ''} onClick={() => setTab(name)}>
+                    <button key={name} className={tab === name ? 'admin-active' : ''} onClick={() => setTab(name)}>
                         {name}
                     </button>
                 ))}

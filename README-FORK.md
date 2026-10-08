@@ -22,8 +22,10 @@ admin user). Open the site, then `/#/admin` to rebrand and paste ad codes.
 - Admin URL is `/#/admin` (HashRouter — no server rewrites needed).
 - Adsterra codes are domain-bound: slots render blank on localhost or any
   domain that is not approved in the Adsterra dashboard. That is expected.
-- Uploads (logo/favicon) live in the `brand-data` volume, served at `/brand/*`.
+- Uploads (logo/favicon) live in the `brand-data` volume at `/data/uploads`, served at `/brand/*`.
+- Sessions are in-memory: restarting the api container logs the admin out. Fine for a single instance.
 - MySQL instead of SQLite: set `DB_DRIVER=mysql` in `.env` and start with
-  `docker compose --profile mysql up -d`. Same schema, no code changes.
+  `docker compose --profile mysql up -d`. Same schema, no code changes
+  (the api image bakes the `mysql2` driver).
 - License: keep `LICENSE.md` and copyright headers intact; keep this fork's
   source available when distributing or hosting it (GPL-2.0).

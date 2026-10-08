@@ -1,3 +1,4 @@
+-- Copyright (C) 2026 stremio-linux fork. GPL-2.0.
 -- Portable schema: runs on SQLite and MySQL (no backticks, no AUTOINCREMENT).
 CREATE TABLE IF NOT EXISTS branding (
     id INTEGER PRIMARY KEY,
