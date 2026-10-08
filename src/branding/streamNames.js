@@ -39,4 +39,24 @@ function maskStreamName(raw) {
     return result;
 }
 
-module.exports = { maskStreamName };
+function maskStreamDescription(raw) {
+    if (typeof raw !== 'string') {
+        return raw;
+    }
+
+    if (raw === '') {
+        return '';
+    }
+
+    let result = raw.replace(/\[[^[\]]*\]/g, ' ');
+    result = result.replace(/(?:💾\s*)?\b\d+(\.\d+)?\s?(GB|MB|KB|TB)\b/gi, ' ');
+    result = result.replace(/\s+/g, ' ').trim();
+
+    if (result === '') {
+        return maskStreamName(raw);
+    }
+
+    return result;
+}
+
+module.exports = { maskStreamName, maskStreamDescription };

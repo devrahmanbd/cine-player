@@ -156,4 +156,39 @@ describe('addons', () => {
         });
         assert.equal(delMissing.status, 404);
     });
+
+    it('proxies manifests for enabled addons only (allowlisted, never open)', async () => {
+        const created = await (
+            await fetch(`${base}/api/addons`, {
+                method: 'POST',
+                headers: { 'content-type': 'application/json', cookie },
+                body: JSON.stringify({ manifest_url: `${manifestBase}/manifest.json` }),
+            })
+        ).json();
+        const addonId = created.id;
+
+        // unknown URL -> 404 (not an open proxy)
+        const evil = await fetch(
+            `${base}/api/addons/manifest?url=${encodeURIComponent('https://evil.example/manifest.json')}`
+        );
+        assert.equal(evil.status, 404);
+
+        // enabled -> 200 with manifest
+        const proxied = await fetch(
+            `${base}/api/addons/manifest?url=${encodeURIComponent(`${manifestBase}/manifest.json`)}`
+        );
+        assert.equal(proxied.status, 200);
+        assert.equal((await proxied.json()).id, 'test.addon');
+
+        // disabled -> 404
+        await fetch(`${base}/api/addons/${addonId}`, {
+            method: 'PUT',
+            headers: { 'content-type': 'application/json', cookie },
+            body: JSON.stringify({ enabled: false }),
+        });
+        const hidden = await fetch(
+            `${base}/api/addons/manifest?url=${encodeURIComponent(`${manifestBase}/manifest.json`)}`
+        );
+        assert.equal(hidden.status, 404);
+    });
 });

@@ -11,7 +11,7 @@ const { Button, Image, Popup } = require('stremio/components');
 const ActionButton = require('stremio/components/MetaPreview/ActionButton');
 const { default: useRouteFocused } = require('stremio/common/useRouteFocused');
 const StreamPlaceholder = require('./StreamPlaceholder');
-const { maskStreamName } = require('../../../../branding/streamNames');
+const { maskStreamName, maskStreamDescription } = require('../../../../branding/streamNames');
 const styles = require('./styles');
 
 const Stream = ({ className = '', compact = false, isEpg = false, videoId = undefined, videoReleased = undefined, addonName, name, description, thumbnail = undefined, progress, deepLinks, externalPlayerCallbackCanMarkWatched, ...props }) => {
@@ -208,6 +208,7 @@ const Stream = ({ className = '', compact = false, isEpg = false, videoId = unde
     ), []);
 
     const displayName = maskStreamName(name || addonName);
+    const displayDescription = maskStreamDescription(description);
 
     const renderLabel = React.useMemo(() => function renderLabel({ className, children, ...props }) {
         if (compact) {
@@ -244,12 +245,12 @@ const Stream = ({ className = '', compact = false, isEpg = false, videoId = unde
                             null
                     }
                 </div>
-                <div className={styles['description-container']} title={description}>{description}</div>
+                <div className={styles['description-container']} title={displayDescription}>{displayDescription}</div>
                 <Icon className={styles['icon']} name={'play'} />
                 {children}
             </Button>
         );
-    }, [compact, thumbnail, progress, displayName, description, href, target, download, onClick, menuOpen]);
+    }, [compact, thumbnail, progress, displayName, displayDescription, href, target, download, onClick, menuOpen]);
 
     const renderMenu = React.useMemo(() => function renderMenu() {
         return (

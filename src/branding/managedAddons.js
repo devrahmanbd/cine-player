@@ -8,6 +8,25 @@
 // Fail-silent by design: boot must never break because of addon sync.
 
 async function fetchManifest(url, timeoutMs) {
+    const direct = await fetchJsonManifest(url, timeoutMs);
+    if (direct !== null) return direct;
+    // Addon hosts sometimes bot-wall browsers (403) while serving
+    // server-side fetches fine — fall back to our allowlisted proxy.
+    try {
+        const proxied = await fetch(
+            `/api/addons/manifest?url=${encodeURIComponent(url)}`,
+            { signal: AbortSignal.timeout(timeoutMs) }
+        );
+        if (!proxied.ok) return null;
+        const manifest = await proxied.json();
+        if (!manifest || typeof manifest.id !== 'string') return null;
+        return manifest;
+    } catch {
+        return null;
+    }
+}
+
+async function fetchJsonManifest(url, timeoutMs) {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
     try {

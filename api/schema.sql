@@ -27,3 +27,9 @@ CREATE TABLE IF NOT EXISTS addons (
     enabled INTEGER NOT NULL DEFAULT 1,
     position INTEGER NOT NULL DEFAULT 0
 );
+CREATE TABLE IF NOT EXISTS availability (
+    meta_key TEXT PRIMARY KEY,
+    available INTEGER NOT NULL DEFAULT 0,
+    streams INTEGER NOT NULL DEFAULT 0,
+    checked_at TEXT NOT NULL DEFAULT ''
+);

@@ -7,6 +7,7 @@ const path = require('node:path');
 const crypto = require('node:crypto');
 const { openDb } = require('./db');
 const { createSchema, seedDefaults, SLOT_KEYS } = require('./seed');
+const { resolveAvailability } = require('./availability');
 
 const BRAND_COLUMNS = ['site_name', 'tagline', 'logo_url', 'favicon_url', 'theme', 'accent'];
 const UPLOAD_EXTS = { '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.svg': 'image/svg+xml', '.ico': 'image/x-icon' };
@@ -188,6 +189,25 @@ function startServer({ port = 3001, db, uploadsDir } = {}) {
                 return send(response, 200, rows);
             }
 
+            // Public manifest proxy: some addon hosts bot-wall browsers (403)
+            // while serving server-side fetches fine. The requested URL must be
+            // an enabled admin addon (allowlist) — never an open proxy.
+            if (request.method === 'GET' && url.pathname === '/api/addons/manifest') {
+                const target = url.searchParams.get('url') || '';
+                const allowed = await db.query(
+                    'SELECT id FROM addons WHERE manifest_url = ? AND enabled = 1',
+                    [target]
+                );
+                if (allowed.length === 0) return send(response, 404, { error: 'unknown addon' });
+                let manifest;
+                try {
+                    manifest = await fetchManifest(target);
+                } catch (error) {
+                    return send(response, error.status || 400, { error: error.message || 'bad manifest' });
+                }
+                return send(response, 200, manifest);
+            }
+
             if (request.method === 'POST' && url.pathname === '/api/addons') {
                 if (!authed) return send(response, 401, { error: 'unauthorized' });
                 const body = await readJson(request, 64 * 1024);
@@ -305,6 +325,38 @@ function startServer({ port = 3001, db, uploadsDir } = {}) {
                 if (!fs.existsSync(file)) return send(response, 404, { error: 'not found' });
                 response.writeHead(200, { 'content-type': UPLOAD_EXTS[ext] });
                 return fs.createReadStream(file).pipe(response);
+            }
+
+            if (request.method === 'GET' && url.pathname === '/api/availability') {
+                const raw = url.searchParams.get('keys') || '';
+                const parts = String(raw)
+                    .split(',')
+                    .map((s) => s.trim())
+                    .filter((s) => s.length > 0);
+                const uniq = [...new Set(parts.filter((k) => /^(movie|series):[A-Za-z0-9_-]+$/.test(k)))].slice(0, 200);
+                if (uniq.length === 0) return send(response, 200, {});
+                const placeholders = uniq.map(() => '?').join(',');
+                const rows = await db.query(
+                    `SELECT meta_key, available, streams, checked_at FROM availability WHERE meta_key IN (${placeholders})`,
+                    uniq
+                );
+                const out = {};
+                for (const row of rows) {
+                    out[row.meta_key] = {
+                        available: Number(row.available),
+                        streams: Number(row.streams),
+                        checked_at: row.checked_at,
+                    };
+                }
+                return send(response, 200, out);
+            }
+
+            if (request.method === 'POST' && url.pathname === '/api/availability/refresh') {
+                if (!authed) return send(response, 401, { error: 'unauthorized' });
+                const body = await readJson(request, 256 * 1024);
+                const items = Array.isArray(body.items) ? body.items.slice(0, 200) : [];
+                const result = await resolveAvailability(db, items);
+                return send(response, 200, result);
             }
 
             return send(response, 404, { error: 'not found' });
