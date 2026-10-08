@@ -36,7 +36,7 @@ const Calendar = () => {
     };
 
     return (
-        <MainNavBars className={styles['calendar']} route={'calendar'}>
+        <MainNavBars className={styles['calendar']} route={'calendar'} verticalNav={false}>
             {
                 profile.auth !== null ?
                     <div className={classNames(styles['content'], 'animation-fade-in')}>
@@ -76,7 +76,7 @@ const Calendar = () => {
 };
 
 const CalendarFallback = () => (
-    <MainNavBars className={styles['calendar']} />
+    <MainNavBars className={styles['calendar']} verticalNav={false} />
 );
 
 export default withCoreSuspender(Calendar, CalendarFallback);

@@ -32,7 +32,7 @@ const Search = () => {
         loadRange: loadSearchRows,
     });
     return (
-        <MainNavBars className={styles['search-container']} route={'search'} query={query}>
+        <MainNavBars className={styles['search-container']} route={'search'} verticalNav={false} query={query}>
             <div ref={scrollContainerRef} className={styles['search-content']} onScroll={onScroll}>
                 {
                     query === null ?
@@ -115,7 +115,7 @@ const Search = () => {
 
 const SearchFallback = () => {
     const [queryParams] = useSearchParams();
-    return <MainNavBars className={styles['search-container']} route={'search'} query={queryParams.get('search') ?? queryParams.get('query')} />;
+    return <MainNavBars className={styles['search-container']} route={'search'} verticalNav={false} query={queryParams.get('search') ?? queryParams.get('query')} />;
 };
 
 module.exports = withCoreSuspender(Search, SearchFallback);

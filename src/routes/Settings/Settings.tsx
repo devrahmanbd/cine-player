@@ -85,7 +85,7 @@ const Settings = () => {
     }, [routeFocused]);
 
     return (
-        <MainNavBars className={styles['settings-container']} route={'settings'}>
+        <MainNavBars className={styles['settings-container']} route={'settings'} verticalNav={false}>
             <div className={classnames(styles['settings-content'], 'animation-fade-in')}>
                 <Menu
                     selected={selectedSectionId}
@@ -122,7 +122,7 @@ const Settings = () => {
 };
 
 const SettingsFallback = () => (
-    <MainNavBars className={styles['settings-container']} route={'settings'} />
+    <MainNavBars className={styles['settings-container']} route={'settings'} verticalNav={false} />
 );
 
 export default withCoreSuspender(Settings, SettingsFallback);

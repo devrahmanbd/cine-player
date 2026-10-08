@@ -45,7 +45,7 @@ const Board = () => {
         <div className={styles['board-container']}>
             <EventModal />
             <AdSlot slot={'banner_728x90'} />
-            <MainNavBars className={styles['board-content-container']} route={'board'}>
+            <MainNavBars className={styles['board-content-container']} route={'board'} verticalNav={false}>
                 <div ref={scrollContainerRef} className={styles['board-content']} onScroll={onScroll}>
                     {
                         continueWatchingPreview.items.length > 0 ?
@@ -122,7 +122,7 @@ const Board = () => {
 
 const BoardFallback = () => (
     <div className={styles['board-container']}>
-        <MainNavBars className={styles['board-content-container']} route={'board'} />
+        <MainNavBars className={styles['board-content-container']} route={'board'} verticalNav={false} />
     </div>
 );
 

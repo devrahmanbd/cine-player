@@ -19,9 +19,10 @@ type Props = {
     route?: string,
     query?: string,
     children?: React.ReactNode,
+    verticalNav?: boolean,
 };
 
-const MainNavBars = memo(({ className, route, query, children }: Props) => {
+const MainNavBars = memo(({ className, route, query, children, verticalNav = true }: Props) => {
     const navRef = React.useRef(null);
     const contentRef = React.useRef(null);
 
@@ -40,12 +41,17 @@ const MainNavBars = memo(({ className, route, query, children }: Props) => {
                 fullscreenButton={true}
                 navMenu={true}
             />
-            <VerticalNavBar
-                ref={navRef}
-                className={styles['vertical-nav-bar']}
-                selected={route}
-                tabs={TABS}
-            />
+            {
+                verticalNav ?
+                    <VerticalNavBar
+                        ref={navRef}
+                        className={styles['vertical-nav-bar']}
+                        selected={route}
+                        tabs={TABS}
+                    />
+                    :
+                    null
+            }
             <div ref={contentRef} className={styles['nav-content-container']}>{children}</div>
         </div>
     );
