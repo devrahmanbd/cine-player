@@ -3,6 +3,7 @@
 // blocked. Injects stored code into its own container only; cleans up on
 // unmount or toggle-off. Never touches player or navigation.
 const React = require('react');
+const PropTypes = require('prop-types');
 const { useBranding } = require('../../branding/BrandingContext');
 
 function appendCode(container, code) {
@@ -28,7 +29,8 @@ const AdSlot = ({ slot, className }) => {
     const { ads, ready } = useBranding();
     const ref = React.useRef(null);
     const entry = ads[slot];
-    const active = ready && entry && entry.enabled && entry.code;
+    const code = entry && entry.code;
+    const active = ready && entry && entry.enabled && code;
 
     React.useEffect(() => {
         const container = ref.current;
@@ -36,15 +38,20 @@ const AdSlot = ({ slot, className }) => {
         container.replaceChildren();
         if (!active) return undefined;
         try {
-            appendCode(container, entry.code);
+            appendCode(container, code);
         } catch {
             container.replaceChildren();
         }
         return () => container.replaceChildren();
-    }, [active, entry && entry.code]);
+    }, [active, code]);
 
     if (!active) return null;
     return <div ref={ref} className={className} data-adslot={slot} />;
+};
+
+AdSlot.propTypes = {
+    slot: PropTypes.string.isRequired,
+    className: PropTypes.string,
 };
 
 module.exports = AdSlot;

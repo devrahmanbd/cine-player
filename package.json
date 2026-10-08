@@ -14,6 +14,12 @@
         "lint": "eslint src --max-warnings 287",
         "scan-translations": "pnpx jest ./tests/i18nScan.test.js"
     },
+    "jest": {
+        "testPathIgnorePatterns": [
+            "/node_modules/",
+            "/api/"
+        ]
+    },
     "engines": {
         "node": ">=22",
         "pnpm": ">=11"

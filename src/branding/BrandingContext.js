@@ -2,6 +2,7 @@
 // Runtime branding: fetched once at boot from /api/*, applied to
 // document title, favicon and CSS variables. Fail-open with compiled defaults.
 const React = require('react');
+const PropTypes = require('prop-types');
 const { injectSiteScripts } = require('./adInjector');
 
 const DEFAULT_BRAND = {
@@ -61,6 +62,10 @@ const BrandingProvider = ({ children }) => {
     }, []);
 
     return <BrandingContext.Provider value={state}>{children}</BrandingContext.Provider>;
+};
+
+BrandingProvider.propTypes = {
+    children: PropTypes.node,
 };
 
 function useBranding() {

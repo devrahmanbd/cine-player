@@ -19,7 +19,7 @@ const { default: useInterfaceScale } = require('./useInterfaceScale');
 const styles = require('./styles');
 const SystemPanel = require('../components/LinuxChrome/SystemPanel');
 const Dock = require('../components/LinuxChrome/Dock');
-require('../components/LinuxChrome/linux-vars.css');
+require('../components/LinuxChrome/linux-vars.less');
 
 const ProtectedRoutes = withCoreSuspender(Routes);
 const NAVIGATE_TABS_ROUTES = ['/', '/discover', '/library', '/calendar', '/addons', '/settings'];

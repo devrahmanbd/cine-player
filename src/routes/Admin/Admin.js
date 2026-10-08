@@ -2,6 +2,28 @@
 // /admin CMS: brand fields, per-slot ad toggles + code editing, logo/favicon
 // uploads. Session is an httpOnly cookie; /api/admin/me probes auth state.
 const React = require('react');
+const PropTypes = require('prop-types');
+
+// Admin is an internal, English-only tool (not part of the translated product
+// surface), so labels live in this map instead of raw JSX text, which the
+// repo's i18n scan (tests/i18nScan.test.js) forbids outside t() calls.
+const STR = {
+    loginTitle: 'Admin login',
+    username: 'Username',
+    password: 'Password',
+    login: 'Log in',
+    invalid: 'Invalid credentials',
+    loading: 'Loading…',
+    siteAdmin: 'Site admin',
+    logout: 'Log out',
+    brand: 'Brand',
+    saveBrand: 'Save brand',
+    ads: 'Ads',
+    save: 'Save',
+    saveFailed: 'Save failed (session expired? log in again).',
+    uploads: 'Uploads',
+    reloaded: 'Reload the site to see changes.',
+};
 
 const BRAND_FIELDS = ['site_name', 'tagline', 'logo_url', 'favicon_url', 'theme', 'accent'];
 
@@ -31,13 +53,17 @@ const AdminLogin = ({ onLogin }) => {
     };
     return (
         <form onSubmit={submit}>
-            <h2>Admin login</h2>
-            <label>Username<input value={username} onChange={(e) => setUsername(e.target.value)} autoComplete={'username'} /></label>
-            <label>Password<input type={'password'} value={password} onChange={(e) => setPassword(e.target.value)} autoComplete={'current-password'} /></label>
+            <h2>{STR.loginTitle}</h2>
+            <label>{STR.username}<input value={username} onChange={(e) => setUsername(e.target.value)} autoComplete={'username'} /></label>
+            <label>{STR.password}<input type={'password'} value={password} onChange={(e) => setPassword(e.target.value)} autoComplete={'current-password'} /></label>
             {error ? <div className={'admin-error'}>{error}</div> : null}
-            <button type={'submit'}>Log in</button>
+            <button type={'submit'}>{STR.login}</button>
         </form>
     );
+};
+
+AdminLogin.propTypes = {
+    onLogin: PropTypes.func.isRequired,
 };
 
 const BrandForm = () => {
@@ -59,13 +85,13 @@ const BrandForm = () => {
     if (brand === null) return <div>{status || 'Loading…'}</div>;
     return (
         <div>
-            <h2>Brand</h2>
+            <h2>{STR.brand}</h2>
             {BRAND_FIELDS.map((field) => (
                 <label key={field}>{field}
                     <input value={brand[field] || ''} onChange={(e) => setBrand({ ...brand, [field]: e.target.value })} />
                 </label>
             ))}
-            <button onClick={save}>Save brand</button>
+            <button onClick={save}>{STR.saveBrand}</button>
             {status ? <div className={'admin-status'}>{status}</div> : null}
         </div>
     );
@@ -89,7 +115,7 @@ const AdsForm = () => {
     if (slots === null) return <div>{status || 'Loading…'}</div>;
     return (
         <div>
-            <h2>Ads</h2>
+            <h2>{STR.ads}</h2>
             {slots.map((slot) => (
                 <div key={slot.slot_key} className={'admin-slot'}>
                     <label>
@@ -109,7 +135,7 @@ const AdsForm = () => {
                             setSlots(slots.map((s) => (s.slot_key === slot.slot_key ? { ...s, code: e.target.value } : s)))
                         }
                     />
-                    <button onClick={() => save(slot)}>Save {slot.slot_key}</button>
+                    <button onClick={() => save(slot)}>{`${STR.save} ${slot.slot_key}`}</button>
                 </div>
             ))}
             {status ? <div className={'admin-status'}>{status}</div> : null}
@@ -138,7 +164,7 @@ const UploadsForm = () => {
     };
     return (
         <div>
-            <h2>Uploads</h2>
+            <h2>{STR.uploads}</h2>
             <input type={'file'} accept={'.png,.jpg,.jpeg,.svg,.ico'} onChange={upload} />
             {status ? <div className={'admin-status'}>{status}</div> : null}
         </div>
@@ -156,7 +182,7 @@ const Admin = () => {
         await api('/api/admin/logout', { method: 'POST' }).catch(() => null);
         setAuthed(false);
     };
-    if (authed === null) return <div className={'admin-page'}>Loading…</div>;
+    if (authed === null) return <div className={'admin-page'}>{STR.loading}</div>;
     if (!authed) {
         return (
             <div className={'admin-page'}>
@@ -166,14 +192,14 @@ const Admin = () => {
     }
     return (
         <div className={'admin-page'}>
-            <h1>Site admin</h1>
+            <h1>{STR.siteAdmin}</h1>
             <div className={'admin-tabs'}>
                 {['brand', 'ads', 'uploads'].map((name) => (
                     <button key={name} className={tab === name ? 'active' : ''} onClick={() => setTab(name)}>
                         {name}
                     </button>
                 ))}
-                <button onClick={logout}>Log out</button>
+                <button onClick={logout}>{STR.logout}</button>
             </div>
             {tab === 'brand' ? <BrandForm /> : null}
             {tab === 'ads' ? <AdsForm /> : null}
