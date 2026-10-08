@@ -116,22 +116,6 @@ const General = forwardRef<HTMLDivElement, Props>(({ profile }: Props, ref) => {
                         onClick={onCalendarSubscribe}
                     />
             }
-            <Link
-                label={t('SETTINGS_SUPPORT')}
-                href={'https://stremio.zendesk.com/hc/en-us'}
-            />
-            <Link
-                label={t('SETTINGS_SOURCE_CODE')}
-                href={`https://github.com/stremio/stremio-web/tree/${process.env.COMMIT_HASH}`}
-            />
-            <Link
-                label={t('TERMS_OF_SERVICE')}
-                href={'https://www.stremio.com/tos'}
-            />
-            <Link
-                label={t('PRIVACY_POLICY')}
-                href={'https://www.stremio.com/privacy'}
-            />
             {
                 profile?.auth?.user &&
                     <Link
