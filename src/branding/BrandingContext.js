@@ -11,7 +11,7 @@ const DEFAULT_BRAND = {
     site_name: 'LinuxStream',
     tagline: 'Freedom to Stream',
     logo_url: '/brand/logo.svg',
-    favicon_url: '/brand/favicon.svg',
+    favicon_url: '/favicons/favicon.ico',
     theme: 'gnome-dark',
     accent: '#E95420',
 };

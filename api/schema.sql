@@ -5,7 +5,7 @@ CREATE TABLE IF NOT EXISTS branding (
     site_name TEXT NOT NULL DEFAULT 'LinuxStream',
     tagline TEXT NOT NULL DEFAULT 'Freedom to Stream',
     logo_url TEXT NOT NULL DEFAULT '/brand/logo.svg',
-    favicon_url TEXT NOT NULL DEFAULT '/brand/favicon.svg',
+    favicon_url TEXT NOT NULL DEFAULT '/favicons/favicon.ico',
     theme TEXT NOT NULL DEFAULT 'gnome-dark',
     accent TEXT NOT NULL DEFAULT '#E95420',
     updated_at TEXT NOT NULL DEFAULT ''

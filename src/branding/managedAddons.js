@@ -53,6 +53,9 @@ function dispatch(core, action, addon) {
 async function syncManagedAddons(core, managed) {
     try {
         if (!core || !core.transport || !Array.isArray(managed)) return;
+        // Empty list means "not configured yet" — never wipe a visitor's
+        // addons on a fresh deploy. Enforcement starts at >= 1 entry.
+        if (managed.length === 0) return;
         const installed = await readInstalledAddons(core);
         const list = Array.isArray(installed) ? installed : [];
 
