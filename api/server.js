@@ -295,7 +295,10 @@ function startServer({ port = 3001, db, uploadsDir } = {}) {
                 const name = path.basename(url.pathname);
                 const ext = path.extname(name).toLowerCase();
                 if (!UPLOAD_EXTS[ext]) return send(response, 404, { error: 'not found' });
-                const file = path.join(uploads, name);
+                // Uploaded file first, permanent repo-bundled default second:
+                // the logo slot can never 404 even if uploads are wiped.
+                const bundled = path.join(__dirname, '..', 'assets', 'brand', name);
+                const file = fs.existsSync(path.join(uploads, name)) ? path.join(uploads, name) : bundled;
                 if (!fs.existsSync(file)) return send(response, 404, { error: 'not found' });
                 response.writeHead(200, { 'content-type': UPLOAD_EXTS[ext] });
                 return fs.createReadStream(file).pipe(response);

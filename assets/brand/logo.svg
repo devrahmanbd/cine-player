@@ -1,0 +1,8 @@
+<!-- Copyright (C) 2026 stremio-linux fork. GPL-2.0. -->
+<!-- Permanent default brand mark. Replaced at runtime by the admin-uploaded
+     logo (branding.logo_url); the server falls back to this file whenever the
+     upload is missing, so the logo slot can never 404. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <rect x="2" y="2" width="60" height="60" rx="14" fill="#1e1e2e"/>
+  <path d="M26 20l18 12-18 12z" fill="#E95420"/>
+</svg>

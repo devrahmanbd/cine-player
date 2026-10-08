@@ -117,4 +117,12 @@ describe('server', () => {
         ).json();
         assert.match(good.url, /^\/brand\/.+\.png$/);
     });
+
+    it('serves bundled brand defaults when uploads are missing (logo never 404s)', async () => {
+        const res = await fetch(`${base}/brand/logo.svg`);
+        assert.equal(res.status, 200);
+        assert.match(res.headers.get('content-type'), /svg/);
+        const missing = await fetch(`${base}/brand/no-such-file.png`);
+        assert.equal(missing.status, 404);
+    });
 });
