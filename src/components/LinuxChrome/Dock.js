@@ -4,12 +4,12 @@ const React = require('react');
 const { useLocation, useNavigate } = require('react-router');
 
 const TABS = [
-    { path: '/', label: 'Board', icon: '▦' },
-    { path: '/discover', label: 'Discover', icon: '◉' },
-    { path: '/library', label: 'Library', icon: '▤' },
-    { path: '/calendar', label: 'Calendar', icon: '◫' },
-    { path: '/search', label: 'Search', icon: '⌕' },
-    { path: '/settings', label: 'Settings', icon: '⚙' },
+    { path: '/', label: 'Board', short: 'Home' },
+    { path: '/discover', label: 'Discover', short: 'Find' },
+    { path: '/library', label: 'Library', short: 'Saved' },
+    { path: '/calendar', label: 'Calendar', short: 'Cal' },
+    { path: '/search', label: 'Search', short: 'Seek' },
+    { path: '/settings', label: 'Settings', short: 'Setup' },
 ];
 
 const Dock = () => {
@@ -25,7 +25,7 @@ const Dock = () => {
                     className={location.pathname === tab.path ? 'lx-active' : ''}
                     onClick={() => navigate(tab.path)}
                 >
-                    {tab.icon}
+                    <span className={'lx-dock-label'}>{tab.short}</span>
                 </button>
             ))}
         </nav>
