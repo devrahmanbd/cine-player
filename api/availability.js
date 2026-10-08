@@ -22,6 +22,55 @@ async function fetchJson(url, timeoutMs) {
     return response.json();
 }
 
+const PROBE_TIMEOUT_MS = 8000;
+const PROBE_MAX_URLS = 5;
+const PROBE_UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36';
+
+// Liveness probe: a listed stream counts only if its file responds.
+// HEAD first (cheap); hosts rejecting HEAD (405/501) fall back to a
+// single-byte ranged GET. Accept 200/206. Anything else (404, expired
+// signatures, timeouts, non-http) = dead.
+async function probeStreamUrl(url) {
+    if (typeof url !== 'string') return false;
+    let parsed;
+    try {
+        parsed = new URL(url);
+    } catch {
+        return false;
+    }
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return false;
+    const headers = { 'user-agent': PROBE_UA };
+    try {
+        const head = await fetch(url, { method: 'HEAD', headers, signal: AbortSignal.timeout(PROBE_TIMEOUT_MS) });
+        if (head.status === 200 || head.status === 206) return true;
+        if (head.status !== 405 && head.status !== 501) return false;
+    } catch {
+        return false;
+    }
+    try {
+        const ranged = await fetch(url, {
+            headers: { ...headers, range: 'bytes=0-0' },
+            signal: AbortSignal.timeout(PROBE_TIMEOUT_MS),
+        });
+        return ranged.status === 200 || ranged.status === 206;
+    } catch {
+        return false;
+    }
+}
+
+async function countAliveUrls(urls) {
+    const sample = [];
+    const seen = new Set();
+    for (const url of urls) {
+        if (typeof url !== 'string' || seen.has(url)) continue;
+        seen.add(url);
+        sample.push(url);
+        if (sample.length >= PROBE_MAX_URLS) break;
+    }
+    const results = await Promise.all(sample.map((url) => probeStreamUrl(url)));
+    return results.filter(Boolean).length;
+}
+
 async function resolveAvailability(db, items) {
     const valid = [];
     const seen = new Set();
@@ -42,15 +91,20 @@ async function resolveAvailability(db, items) {
     }
     let availableCount = 0;
     for (const item of valid) {
-        let total = 0;
+        const candidates = [];
         for (const base of bases) {
             try {
                 const data = await fetchJson(`${base}/stream/${item.type}/${item.id}.json`, 8000);
-                if (data && Array.isArray(data.streams)) total += data.streams.length;
+                if (data && Array.isArray(data.streams)) {
+                    for (const stream of data.streams) {
+                        if (stream && typeof stream.url === 'string') candidates.push(stream.url);
+                    }
+                }
             } catch {
                 // One bad addon never aborts the item/batch.
             }
         }
+        const total = await countAliveUrls(candidates);
         const now = new Date().toISOString();
         const avail = total > 0 ? 1 : 0;
         if (avail) availableCount += 1;
@@ -74,4 +128,4 @@ async function resolveAvailability(db, items) {
     return { checked: valid.length, available: availableCount };
 }
 
-module.exports = { manifestBase, fetchJson, resolveAvailability };
+module.exports = { manifestBase, fetchJson, probeStreamUrl, countAliveUrls, resolveAvailability };

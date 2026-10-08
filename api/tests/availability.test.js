@@ -38,10 +38,19 @@ describe('availability', () => {
                 }));
             } else if (req.url === '/stream/movie/tt111.json') {
                 res.writeHead(200, { 'content-type': 'application/json' });
-                res.end(JSON.stringify({ streams: [{ url: 'http://cdn/x1' }, { url: 'http://cdn/x2' }] }));
+                res.end(JSON.stringify({ streams: [{ url: `${manifestBase}/alive` }, { url: `${manifestBase}/dead` }] }));
             } else if (req.url === '/stream/movie/tt222.json') {
                 res.writeHead(200, { 'content-type': 'application/json' });
                 res.end(JSON.stringify({ streams: [] }));
+            } else if (req.url === '/stream/movie/tt333.json') {
+                res.writeHead(200, { 'content-type': 'application/json' });
+                res.end(JSON.stringify({ streams: [{ url: `${manifestBase}/dead` }] }));
+            } else if (req.url === '/alive') {
+                res.writeHead(200, { 'content-type': 'video/mp4' });
+                res.end('fake-bytes');
+            } else if (req.url === '/dead') {
+                res.writeHead(404, { 'content-type': 'application/json' });
+                res.end(JSON.stringify({ error: 'gone' }));
             } else if (req.url === '/catalog/movie/top.json') {
                 res.writeHead(200, { 'content-type': 'application/json' });
                 res.end(JSON.stringify({ metas: [{ id: 'tt111', type: 'movie' }, { id: 'tt222', type: 'movie' }] }));
@@ -78,23 +87,27 @@ describe('availability', () => {
         await db.close();
     });
 
-    it('refresh marks available=1/0 correctly', async () => {
+    it('refresh marks available by probed liveness, not listed count', async () => {
         const res = await fetch(`${base}/api/availability/refresh`, {
             method: 'POST',
             headers: { 'content-type': 'application/json', cookie },
-            body: JSON.stringify({ items: [{ type: 'movie', id: 'tt111' }, { type: 'movie', id: 'tt222' }] }),
+            body: JSON.stringify({
+                items: [{ type: 'movie', id: 'tt111' }, { type: 'movie', id: 'tt222' }, { type: 'movie', id: 'tt333' }],
+            }),
         });
         assert.equal(res.status, 200);
         const body = await res.json();
-        assert.equal(body.checked, 2);
+        assert.equal(body.checked, 3);
         assert.equal(body.available, 1);
 
         const rows = await db.query('SELECT meta_key, available, streams FROM availability ORDER BY meta_key');
         const byKey = Object.fromEntries(rows.map((r) => [r.meta_key, r]));
         assert.equal(byKey['movie:tt111'].available, 1);
-        assert.equal(byKey['movie:tt111'].streams, 2);
+        assert.equal(byKey['movie:tt111'].streams, 1);
         assert.equal(byKey['movie:tt222'].available, 0);
         assert.equal(byKey['movie:tt222'].streams, 0);
+        assert.equal(byKey['movie:tt333'].available, 0);
+        assert.equal(byKey['movie:tt333'].streams, 0);
     });
 
     it('GET batch returns map and omits unknown keys, skips invalid format', async () => {
@@ -103,7 +116,7 @@ describe('availability', () => {
         const body = await res.json();
         assert.ok(body['movie:tt111'], 'has tt111');
         assert.equal(body['movie:tt111'].available, 1);
-        assert.equal(body['movie:tt111'].streams, 2);
+        assert.equal(body['movie:tt111'].streams, 1);
         assert.ok(typeof body['movie:tt111'].checked_at === 'string');
         assert.ok(body['movie:tt222'], 'has tt222');
         assert.equal(body['movie:tt999'], undefined, 'omits unknown keys');
