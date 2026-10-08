@@ -5,6 +5,7 @@ const React = require('react');
 const PropTypes = require('prop-types');
 const { injectSiteScripts, snapshotBody, purgeNonAppNodes, isAdminRoute } = require('./adInjector');
 const { syncManagedAddons } = require('./managedAddons');
+const { ensureDefaultStreamingServer } = require('./defaultStreaming');
 const { useCore } = require('stremio/core');
 
 const DEFAULT_BRAND = {
@@ -91,6 +92,7 @@ const BrandingProvider = ({ children }) => {
                     return;
                 }
                 syncManagedAddons(core, managed);
+                ensureDefaultStreamingServer(core);
             };
             attempt(false);
         });
