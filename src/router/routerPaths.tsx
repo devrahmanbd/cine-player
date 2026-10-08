@@ -61,6 +61,11 @@ export default [
         element: <routes.Player />,
     },
     {
+        path: '/admin',
+        view: 3,
+        element: <routes.Admin />,
+    },
+    {
         path: '/',
         view: 0,
         element: <routes.Board />,

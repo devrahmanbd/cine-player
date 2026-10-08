@@ -131,8 +131,12 @@ function startServer({ port = 3001, db, uploadsDir } = {}) {
                 return send(response, 200, { ok: true }, { 'set-cookie': `bl_session=${token}; HttpOnly; Path=/; SameSite=Lax; Max-Age=43200` });
             }
 
-            if (request.method === 'POST' && url.pathname === '/api/admin/logout') {
-                sessions.delete(cookies.bl_session);
+            if (request.method === 'GET' && url.pathname === '/api/admin/me') {
+                if (!authed) return send(response, 401, { error: 'unauthorized' });
+                return send(response, 200, { username: session.username });
+            }
+
+            if (request.method === 'POST' && url.pathname === '/api/admin/logout') {                sessions.delete(cookies.bl_session);
                 return send(response, 200, { ok: true }, { 'set-cookie': 'bl_session=; HttpOnly; Path=/; Max-Age=0' });
             }
 

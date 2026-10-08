@@ -61,6 +61,11 @@ describe('server', () => {
         assert.equal(login.status, 200);
         const cookie = login.headers.get('set-cookie').split(';')[0];
 
+        const me = await (
+            await fetch(`${base}/api/admin/me`, { headers: { cookie } })
+        ).json();
+        assert.equal(me.username, 'root');
+
         const updated = await (
             await fetch(`${base}/api/branding`, {
                 method: 'PUT',
