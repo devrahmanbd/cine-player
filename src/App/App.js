@@ -17,6 +17,9 @@ const { default: ShortcutsModal } = require('./ShortcutsModal');
 const { default: GamepadModal } = require('./GamepadModal');
 const { default: useInterfaceScale } = require('./useInterfaceScale');
 const styles = require('./styles');
+const SystemPanel = require('../components/LinuxChrome/SystemPanel');
+const Dock = require('../components/LinuxChrome/Dock');
+require('../components/LinuxChrome/linux-vars.css');
 
 const ProtectedRoutes = withCoreSuspender(Routes);
 const NAVIGATE_TABS_ROUTES = ['/', '/discover', '/library', '/calendar', '/addons', '/settings'];
@@ -174,7 +177,13 @@ const App = () => {
                                     <DeepLinkHandler />
                                     <ShellOpenHandler />
                                     <UpdaterBanner className={styles['updater-banner-container']} />
-                                    <ProtectedRoutes />
+                                    <SystemPanel />
+                                    <div className={'lx-shell'}>
+                                        <Dock />
+                                        <div className={'lx-view'}>
+                                            <ProtectedRoutes />
+                                        </div>
+                                    </div>
                                 </DiscordProvider>
                             </FullscreenProvider>
                         </ShortcutsProvider>
