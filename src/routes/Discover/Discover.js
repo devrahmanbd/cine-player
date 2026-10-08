@@ -23,6 +23,7 @@ const { default: Guide } = require('./Guide');
 const { default: DaySelector } = require('./Guide/DaySelector');
 const { default: useLiveTvGuide } = require('./useLiveTvGuide');
 const styles = require('./styles');
+const AdSlot = require('../../components/AdSlot/AdSlot');
 
 const SCROLL_TO_BOTTOM_THRESHOLD = 400;
 
@@ -384,6 +385,7 @@ const Discover = () => {
                                 null
                         }
                     </div>
+                    <AdSlot slot={'native'} />
                     {
                         discover.catalog !== null && !discover.catalog.installed ?
                             <div className={styles['missing-addon-warning-container']}>

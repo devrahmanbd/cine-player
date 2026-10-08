@@ -17,6 +17,7 @@ const useMetaDetails = require('./useMetaDetails');
 const useSeason = require('./useSeason');
 const { default: useExternalPlayerCallback } = require('./useExternalPlayerCallback');
 const styles = require('./styles');
+const AdSlot = require('../../components/AdSlot/AdSlot');
 
 const GAMEPAD_HANDLER_ID = 'metadetails';
 
@@ -246,6 +247,7 @@ const MetaDetails = () => {
                                     </React.Fragment>
                 }
                 <div className={styles['spacing']} />
+                <AdSlot slot={'banner_468x60'} />
                 {
                     streamPath !== null ?
                         <StreamsList
