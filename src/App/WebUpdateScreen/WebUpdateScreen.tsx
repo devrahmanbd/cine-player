@@ -4,11 +4,15 @@ import React, { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useMatch } from 'react-router';
 import { UpdateBanner } from 'stremio/components';
+import { useBranding } from 'stremio/branding/BrandingContext';
 import useServiceWorkerUpdater from './useServiceWorkerUpdater';
 import styles from './WebUpdateScreen.less';
 
+const STOCK_LOGO = '/brand/logo.svg';
+
 const WebUpdateScreen = () => {
     const { t } = useTranslation();
+    const { brand } = useBranding();
     const { state, dismissed, applyUpdate, dismissUpdate } = useServiceWorkerUpdater();
     const isPlayer = useMatch('/player/*');
     const autoApply = state.status === 'ready' && state.autoApply;
@@ -16,6 +20,7 @@ const WebUpdateScreen = () => {
         !dismissed &&
         isPlayer === null &&
         (state.status === 'ready' || state.status === 'reload-ready');
+    const updateTitle = `${brand.site_name} update available`;
 
     useEffect(() => {
         if (autoApply && isPlayer === null) {
@@ -33,7 +38,7 @@ const WebUpdateScreen = () => {
             >
                 <img
                     className={styles['logo']}
-                    src={require('/assets/images/stremio_symbol.png?inline')}
+                    src={brand.logo_url && brand.logo_url.length > 0 ? brand.logo_url : STOCK_LOGO}
                     alt={''}
                 />
                 <div className={styles['title']}>
@@ -50,7 +55,7 @@ const WebUpdateScreen = () => {
         <UpdateBanner
             className={styles['web-update-banner']}
             visible={promptVisible}
-            label={t('UPDATER_TITLE')}
+            label={updateTitle}
             actionLabel={t('RELOAD_UI')}
             closeLabel={t('BUTTON_CLOSE')}
             onAction={applyUpdate}

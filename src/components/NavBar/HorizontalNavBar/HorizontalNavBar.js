@@ -14,7 +14,7 @@ const styles = require('./styles');
 const { t } = require('i18next');
 const { useBranding } = require('stremio/branding/BrandingContext');
 
-const STOCK_LOGO = require('/assets/images/stremio_symbol.png');
+const STOCK_LOGO = '/brand/logo.svg';
 
 const BrandLogo = () => {
     const { brand } = useBranding();
