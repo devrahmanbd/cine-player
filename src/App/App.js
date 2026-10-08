@@ -17,9 +17,6 @@ const { default: ShortcutsModal } = require('./ShortcutsModal');
 const { default: GamepadModal } = require('./GamepadModal');
 const { default: useInterfaceScale } = require('./useInterfaceScale');
 const styles = require('./styles');
-const SystemPanel = require('../components/LinuxChrome/SystemPanel');
-const Dock = require('../components/LinuxChrome/Dock');
-require('../components/LinuxChrome/linux-vars.less');
 
 const ProtectedRoutes = withCoreSuspender(Routes);
 const NAVIGATE_TABS_ROUTES = ['/', '/discover', '/library', '/calendar', '/settings'];
@@ -34,7 +31,6 @@ const App = () => {
     const navigate = useNavigate();
     const goBack = useGoBack();
     const locationPath = createPath(location);
-    const isPlayer = locationPath === '/player' || locationPath.startsWith('/player/') || locationPath.startsWith('/player?');
     const previousPathRef = React.useRef(locationPath);
     const [gamepadSupportEnabled, setGamepadSupportEnabled] = React.useState(false);
     const services = React.useMemo(() => {
@@ -178,20 +174,7 @@ const App = () => {
                                     <DeepLinkHandler />
                                     <ShellOpenHandler />
                                     <UpdaterBanner className={styles['updater-banner-container']} />
-                                    {
-                                        isPlayer ?
-                                            <ProtectedRoutes />
-                                            :
-                                            <React.Fragment>
-                                                <SystemPanel />
-                                                <div className={'lx-shell'}>
-                                                    <Dock />
-                                                    <div className={'lx-view'}>
-                                                        <ProtectedRoutes />
-                                                    </div>
-                                                </div>
-                                            </React.Fragment>
-                                    }
+                                    <ProtectedRoutes />
                                 </DiscordProvider>
                             </FullscreenProvider>
                         </ShortcutsProvider>

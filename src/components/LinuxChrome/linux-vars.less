@@ -11,84 +11,7 @@
     --lx-radius: 10px;
 }
 
-:global(.lx-system-panel) {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    height: 34px;
-    padding: 0 14px;
-    background: var(--panel-bg);
-    color: var(--panel-fg);
-    font-size: 12.5px;
-    user-select: none;
-}
-
-:global(.lx-system-panel .lx-brand) {
-    font-weight: 700;
-    color: var(--brand-accent);
-    white-space: nowrap;
-}
-
-:global(.lx-system-panel .lx-clock) {
-    margin-left: auto;
-    color: var(--panel-dim);
-    font-variant-numeric: tabular-nums;
-}
-
-:global(.lx-system-panel .lx-tray) {
-    display: flex;
-    gap: 8px;
-}
-
-:global(.lx-system-panel .lx-tray-dot) {
-    width: 9px;
-    height: 9px;
-    border-radius: 50%;
-    background: var(--panel-dim);
-    opacity: 0.7;
-}
-
-:global(.lx-shell) {
-    display: flex;
-    min-height: calc(100vh - 34px);
-}
-
-:global(.lx-dock) {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 6px;
-    width: 56px;
-    padding: 12px 0;
-    background: var(--dock-bg);
-    flex-shrink: 0;
-}
-
-:global(.lx-dock button) {
-    width: 46px;
-    height: 40px;
-    border: 0;
-    border-radius: var(--lx-radius);
-    background: transparent;
-    color: var(--panel-fg);
-    cursor: pointer;
-}
-
-:global(.lx-dock-label) {
-    font-size: 10px;
-    font-weight: 600;
-    letter-spacing: 0.04em;
-}
-
-:global(.lx-dock button.lx-active) {
-    background: var(--brand-accent);
-    color: #fff;
-}
-
-:global(.lx-view) {
-    flex: 1;
-    min-width: 0;
-}
+// (dock/panel rules removed with the Linux chrome; admin styles below)
 
 :global(.admin-page) {
     max-width: 720px;
@@ -143,16 +66,4 @@
 :global(.admin-page .admin-status) {
     color: var(--panel-dim);
     margin: 8px 0;
-}
-
-@media (max-width: 720px) {
-    :global(.lx-dock) {
-        flex-direction: row;
-        width: 100%;
-        padding: 6px;
-        order: 2;
-    }
-    :global(.lx-shell) {
-        flex-direction: column;
-    }
 }

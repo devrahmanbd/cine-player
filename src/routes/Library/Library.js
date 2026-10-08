@@ -71,7 +71,7 @@ const Library = ({ model }) => {
         }
     }, [typeSelect.value, library.selected]);
     return (
-        <MainNavBars className={styles['library-container']} route={model} verticalNav={false}>
+        <MainNavBars className={styles['library-container']} route={model}>
             {
                 profile.auth !== null ?
                     <div className={styles['library-content']}>
@@ -129,7 +129,7 @@ Library.propTypes = {
 };
 
 const LibraryFallback = ({ model }) => (
-    <MainNavBars className={styles['library-container']} route={model} verticalNav={false} />
+    <MainNavBars className={styles['library-container']} route={model} />
 );
 
 LibraryFallback.propTypes = Library.propTypes;

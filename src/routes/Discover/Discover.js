@@ -332,7 +332,7 @@ const Discover = () => {
         }
     }, [navigateWithOrigin]);
     return (
-        <MainNavBars className={styles['discover-container']} route={'discover'} verticalNav={false}>
+        <MainNavBars className={styles['discover-container']} route={'discover'}>
             <div className={styles['discover-content']}>
                 <div className={styles['catalog-container']}>
                     <div className={classnames(styles['selectable-inputs-container'], { [styles['epg-inputs']]: isEpgLayout })}>
@@ -449,7 +449,7 @@ const Discover = () => {
 };
 
 const DiscoverFallback = () => (
-    <MainNavBars className={styles['discover-container']} route={'discover'} verticalNav={false} />
+    <MainNavBars className={styles['discover-container']} route={'discover'} />
 );
 
 module.exports = withCoreSuspender(Discover, DiscoverFallback);

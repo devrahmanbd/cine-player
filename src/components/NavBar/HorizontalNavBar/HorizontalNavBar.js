@@ -12,6 +12,24 @@ const SearchBar = require('./SearchBar');
 const NavMenu = require('./NavMenu');
 const styles = require('./styles');
 const { t } = require('i18next');
+const { useBranding } = require('stremio/branding/BrandingContext');
+
+const STOCK_LOGO = require('/assets/images/stremio_symbol.png');
+
+const BrandLogo = () => {
+    const { brand } = useBranding();
+    const src = typeof brand.logo_url === 'string' && brand.logo_url.length > 0 ? brand.logo_url : STOCK_LOGO;
+    return (
+        <div className={styles['logo-container']}>
+            <Image
+                className={styles['logo']}
+                src={src}
+                fallbackSrc={STOCK_LOGO}
+                alt={' '}
+            />
+        </div>
+    );
+};
 
 const HorizontalNavBar = React.memo(({ className, route, query, title, backButton, searchBar, fullscreenButton, navMenu, originPath, hdrInfo, ...props }) => {
     const backButtonOnClick = useGoBack(originPath);
@@ -31,13 +49,7 @@ const HorizontalNavBar = React.memo(({ className, route, query, title, backButto
                         <Icon className={styles['icon']} name={'chevron-back'} />
                     </Button>
                     :
-                    <div className={styles['logo-container']}>
-                        <Image
-                            className={styles['logo']}
-                            src={require('/assets/images/stremio_symbol.png')}
-                            alt={' '}
-                        />
-                    </div>
+                    <BrandLogo />
             }
             {
                 typeof title === 'string' && title.length > 0 ?
