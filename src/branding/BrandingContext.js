@@ -10,7 +10,6 @@ const { resolveAdblockMode, readFirstSeen, writeFirstSeen } = require('./adblock
 const { syncManagedAddons } = require('./managedAddons');
 const { ensureDefaultStreamingServer } = require('./defaultStreaming');
 const { useCore } = require('stremio/core');
-const { useProfile } = require('stremio/common');
 
 const DEFAULT_BRAND = {
     site_name: 'LinuxStream',
@@ -47,12 +46,10 @@ function applyBrand(brand) {
 
 const BrandingProvider = ({ children }) => {
     const [state, setState] = React.useState({ brand: DEFAULT_BRAND, ads: {}, ready: false });
-    const [adblockDetected, setAdblockDetected] = React.useState(false);
     const [wallDismissed, setWallDismissed] = React.useState(false);
-    const [, setNowTick] = React.useState(0);
+    const [adblockMode, setAdblockMode] = React.useState('none');
     useAdminAdGuard();
     const core = useCore();
-    const profile = useProfile();
     const managedSyncStarted = React.useRef(false);
 
     React.useEffect(() => {
@@ -75,11 +72,31 @@ const BrandingProvider = ({ children }) => {
                 setState({ brand: nextBrand, ads, ready: true });
                 detectAdblock()
                     .then((detected) => {
-                        if (cancelled) return;
-                        if (detected) {
-                            if (readFirstSeen() === null) writeFirstSeen(Date.now());
-                            setAdblockDetected(true);
+                        if (cancelled || !detected) return;
+                        if (readFirstSeen() === null) writeFirstSeen(Date.now());
+                        // Auth is read straight from core state (no model
+                        // subscription hooks in this provider).
+                        if (!core || !core.transport || !core.transport.getState) {
+                            setAdblockMode('wall');
+                            return;
                         }
+                        core.transport
+                            .getState('ctx')
+                            .then((ctx) => {
+                                if (cancelled) return;
+                                const authed = !!(ctx && ctx.profile && ctx.profile.auth);
+                                setAdblockMode(
+                                    resolveAdblockMode({
+                                        detected: true,
+                                        authed,
+                                        firstSeen: readFirstSeen(),
+                                        now: Date.now(),
+                                    })
+                                );
+                            })
+                            .catch(() => {
+                                if (!cancelled) setAdblockMode('wall');
+                            });
                     })
                     .catch(() => false);
             })
@@ -119,28 +136,19 @@ const BrandingProvider = ({ children }) => {
         };
     }, [core, state.ready]);
 
-    const adblockMode = wallDismissed
-        ? 'none'
-        : resolveAdblockMode({
-            detected: adblockDetected,
-            authed: !!profile.auth,
-            firstSeen: readFirstSeen(),
-            now: Date.now(),
-        });
-
     // Re-evaluate once the signup grace expires while the notice is up.
+    // (Grace only shrinks, so the single transition is notice -> wall.)
     React.useEffect(() => {
-        if (adblockMode !== 'notice') return undefined;
+        if (adblockMode !== 'notice' || wallDismissed) return undefined;
         const firstSeen = readFirstSeen();
-        if (firstSeen === null) return undefined;
-        const remaining = 30 * 60 * 1000 - (Date.now() - firstSeen);
+        const remaining = firstSeen === null ? 0 : 30 * 60 * 1000 - (Date.now() - firstSeen);
         if (!(remaining > 0)) {
-            setNowTick((tick) => tick + 1);
+            setAdblockMode('wall');
             return undefined;
         }
-        const timer = setTimeout(() => setNowTick((tick) => tick + 1), remaining + 1000);
+        const timer = setTimeout(() => setAdblockMode('wall'), remaining + 1000);
         return () => clearTimeout(timer);
-    }, [adblockMode]);
+    }, [adblockMode, wallDismissed]);
 
     return (
         <BrandingContext.Provider value={state}>
