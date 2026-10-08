@@ -21,6 +21,7 @@ const App = require('./App');
 const { default: WebUpdateScreen } = require('./App/WebUpdateScreen');
 const { CoreProvider } = require('./core');
 const { FileDropProvider, PlatformProvider } = require('./common');
+const { BrandingProvider } = require('./branding/BrandingContext');
 
 const translations = Object.fromEntries(Object.entries(stremioTranslations()).map(([key, value]) => [key, {
     translation: value
@@ -49,10 +50,12 @@ root.render(
             <CoreProvider appInfo={appInfo}>
                 <FileDropProvider>
                     <HashRouter>
-                        <>
-                            <WebUpdateScreen />
-                            <App />
-                        </>
+                        <BrandingProvider>
+                            <>
+                                <WebUpdateScreen />
+                                <App />
+                            </>
+                        </BrandingProvider>
                     </HashRouter>
                 </FileDropProvider>
             </CoreProvider>
