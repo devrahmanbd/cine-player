@@ -1,0 +1,42 @@
+# Copyright (C) 2026 stremio-linux fork. GPL-2.0.
+# Caddy edge proxy for single-VPS prod. Automatic Let's Encrypt HTTPS.
+# Env placeholders are expanded by Caddy at startup:
+#   SITE_DOMAIN (required) — public domain, e.g. example.com
+#   ACME_EMAIL (optional) — contact for Let's Encrypt expiry notices.
+# No email is hardcoded; empty ACME_EMAIL means "auto HTTPS, no contact".
+
+{
+	admin off
+}
+
+{$SITE_DOMAIN} {
+	# Optional contact email. Expands to `tls` (auto HTTPS, no contact)
+	# when ACME_EMAIL is unset, or `tls you@example.com` when set.
+	tls {$ACME_EMAIL:}
+
+	encode gzip zstd
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "SAMEORIGIN"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "camera=(), microphone=(), geolocation=()"
+		-Server
+	}
+
+	reverse_proxy web:80 {
+		header_up Host {host}
+		header_up X-Real-IP {remote}
+		header_up X-Forwarded-For {remote}
+		header_up X-Forwarded-Proto {scheme}
+	}
+}
+
+# Local / staging fallback (no public DNS, no Let's Encrypt):
+# comment the block above and uncomment below to use Caddy's internal CA.
+# {$SITE_DOMAIN} {
+# 	tls internal
+# 	encode gzip zstd
+# 	reverse_proxy web:80
+# }

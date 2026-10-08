@@ -1,0 +1,56 @@
+# Copyright (C) 2026 stremio-linux fork. GPL-2.0.
+# Production override: single VPS, Caddy edge proxy (automatic Let's Encrypt)
+# in front of the existing `web` (nginx static) service. `api` stays internal-only.
+#
+# Usage:
+#   SITE_DOMAIN=example.com ACME_EMAIL=you@example.com \
+#     docker compose -f docker-compose.yml -f docker-compose.prod.yml config
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+#
+# Streaming-server reality (read before scaling):
+#   Torrent playback needs a streaming server per visitor (e.g. stremio-shell's
+#   streaming-server transcodes/remuxes torrent pieces to HTTP). This repo is a
+#   branding fork of stremio-web only — it ships NO torrent engine and NO
+#   streaming server. Playback comes from the stream addons you configure in
+#   /admin (each addon URL resolves its own streams server-side or client-side).
+#   Do NOT add a streaming-server service here unless you are prepared to run,
+#   scale, and abuse-manage per-visitor torrent fetching (bandwidth, disk,
+#   DMCA). For a single VPS, keep this file as-is: Caddy -> web -> api.
+#   If you later self-host a streaming server, put it on separate infra and
+#   point your addons at it — out of scope for this override.
+
+services:
+  caddy:
+    image: caddy:alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp" # HTTP/3 / QUIC
+    volumes:
+      - ./docker/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    environment:
+      - SITE_DOMAIN=${SITE_DOMAIN:?SITE_DOMAIN is required, e.g. example.com}
+      - ACME_EMAIL=${ACME_EMAIL:-}
+    depends_on:
+      - web
+
+  web:
+    # In prod Caddy owns 80/443. Drop the dev host binding from docker-compose.yml.
+    # `!reset` clears the base file's `ports:` list (Compose merge keeps lists otherwise).
+    ports: !reset []
+    expose:
+      - "80"
+    # volumes / image inherited from base (./build + ./docker/nginx.conf, read-only).
+
+  # `api` stays internal-only: no ports published (same as base file).
+  # Declared here to document intent — reachable only via `web` (nginx) and `caddy`.
+  api:
+    expose:
+      - "3001"
+
+volumes:
+  caddy_data:
+  caddy_config:
