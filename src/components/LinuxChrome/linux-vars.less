@@ -67,3 +67,62 @@
     color: var(--panel-dim);
     margin: 8px 0;
 }
+
+:global(.lx-adblock-wall) {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(10, 10, 20, 0.96);
+    padding: 16px;
+}
+
+:global(.lx-adblock-card) {
+    max-width: 440px;
+    padding: 28px;
+    border-radius: 12px;
+    background: #1e1e2e;
+    color: #e6e6e6;
+    text-align: center;
+}
+
+:global(.lx-adblock-card button) {
+    margin-top: 12px;
+    padding: 10px 22px;
+    border: 0;
+    border-radius: 8px;
+    background: var(--brand-accent);
+    color: #fff;
+    font-size: 15px;
+    cursor: pointer;
+}
+
+:global(.lx-adblock-notice) {
+    position: fixed;
+    left: 50%;
+    bottom: 18px;
+    transform: translateX(-50%);
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    max-width: min(560px, 90vw);
+    padding: 10px 14px;
+    border-radius: 10px;
+    background: #1e1e2e;
+    color: #e6e6e6;
+    border: 1px solid #444;
+    font-size: 13px;
+}
+
+:global(.lx-adblock-notice button) {
+    flex-shrink: 0;
+    padding: 6px 12px;
+    border: 0;
+    border-radius: 6px;
+    background: #33334d;
+    color: #fff;
+    cursor: pointer;
+}

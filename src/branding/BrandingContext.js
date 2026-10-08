@@ -5,9 +5,11 @@ const React = require('react');
 const PropTypes = require('prop-types');
 const { injectSiteScripts, snapshotBody, purgeNonAppNodes, isAdminRoute } = require('./adInjector');
 const { detectAdblock } = require('./adblockDetector');
+const { AdblockWall, resolveAdblockMode, readFirstSeen, writeFirstSeen } = require('./AdblockWall');
 const { syncManagedAddons } = require('./managedAddons');
 const { ensureDefaultStreamingServer } = require('./defaultStreaming');
 const { useCore } = require('stremio/core');
+const { useProfile } = require('stremio/common');
 
 const DEFAULT_BRAND = {
     site_name: 'LinuxStream',
@@ -44,8 +46,12 @@ function applyBrand(brand) {
 
 const BrandingProvider = ({ children }) => {
     const [state, setState] = React.useState({ brand: DEFAULT_BRAND, ads: {}, ready: false });
+    const [adblockDetected, setAdblockDetected] = React.useState(false);
+    const [wallDismissed, setWallDismissed] = React.useState(false);
+    const [, setNowTick] = React.useState(0);
     useAdminAdGuard();
     const core = useCore();
+    const profile = useProfile();
     const managedSyncStarted = React.useRef(false);
 
     React.useEffect(() => {
@@ -66,7 +72,15 @@ const BrandingProvider = ({ children }) => {
                 snapshotBody();
                 injectSiteScripts(ads);
                 setState({ brand: nextBrand, ads, ready: true });
-                detectAdblock().catch(() => false);
+                detectAdblock()
+                    .then((detected) => {
+                        if (cancelled) return;
+                        if (detected) {
+                            if (readFirstSeen() === null) writeFirstSeen(Date.now());
+                            setAdblockDetected(true);
+                        }
+                    })
+                    .catch(() => false);
             })
             .catch(() => {
                 if (cancelled) return;
@@ -104,7 +118,35 @@ const BrandingProvider = ({ children }) => {
         };
     }, [core, state.ready]);
 
-    return <BrandingContext.Provider value={state}>{children}</BrandingContext.Provider>;
+    const adblockMode = wallDismissed
+        ? 'none'
+        : resolveAdblockMode({
+            detected: adblockDetected,
+            authed: !!profile.auth,
+            firstSeen: readFirstSeen(),
+            now: Date.now(),
+        });
+
+    // Re-evaluate once the signup grace expires while the notice is up.
+    React.useEffect(() => {
+        if (adblockMode !== 'notice') return undefined;
+        const firstSeen = readFirstSeen();
+        if (firstSeen === null) return undefined;
+        const remaining = 30 * 60 * 1000 - (Date.now() - firstSeen);
+        if (!(remaining > 0)) {
+            setNowTick((tick) => tick + 1);
+            return undefined;
+        }
+        const timer = setTimeout(() => setNowTick((tick) => tick + 1), remaining + 1000);
+        return () => clearTimeout(timer);
+    }, [adblockMode]);
+
+    return (
+        <BrandingContext.Provider value={state}>
+            <AdblockWall mode={adblockMode} onDismiss={() => setWallDismissed(true)} />
+            {children}
+        </BrandingContext.Provider>
+    );
 };
 
 function useAdminAdGuard() {
