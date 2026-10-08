@@ -8,6 +8,7 @@ const crypto = require('node:crypto');
 const { openDb } = require('./db');
 const { createSchema, seedDefaults, SLOT_KEYS } = require('./seed');
 const { resolveAvailability } = require('./availability');
+const { curlJson } = require('./curlfetch');
 
 const BRAND_COLUMNS = ['site_name', 'tagline', 'logo_url', 'favicon_url', 'theme', 'accent'];
 const UPLOAD_EXTS = { '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.svg': 'image/svg+xml', '.ico': 'image/x-icon' };
@@ -60,8 +61,6 @@ function send(response, status, body, headers = {}) {
     response.end(payload);
 }
 
-const MANIFEST_MAX_BYTES = 256 * 1024;
-
 async function fetchManifest(manifestUrl) {
     let parsed;
     try {
@@ -72,34 +71,9 @@ async function fetchManifest(manifestUrl) {
     if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
         throw Object.assign(new Error('bad manifest_url'), { status: 400 });
     }
-    let response;
-    try {
-        response = await fetch(manifestUrl, { signal: AbortSignal.timeout(5000) });
-    } catch {
-        throw Object.assign(new Error('bad manifest'), { status: 400 });
-    }
-    if (!response.ok) {
-        throw Object.assign(new Error('bad manifest'), { status: 400 });
-    }
-    const lengthHeader = response.headers.get('content-length');
-    if (lengthHeader && Number(lengthHeader) > MANIFEST_MAX_BYTES) {
-        try {
-            await response.arrayBuffer();
-        } catch {}
-        throw Object.assign(new Error('manifest too large'), { status: 400 });
-    }
-    let buffer;
-    try {
-        buffer = Buffer.from(await response.arrayBuffer());
-    } catch {
-        throw Object.assign(new Error('bad manifest'), { status: 400 });
-    }
-    if (buffer.length > MANIFEST_MAX_BYTES) {
-        throw Object.assign(new Error('manifest too large'), { status: 400 });
-    }
     let manifest;
     try {
-        manifest = JSON.parse(buffer.toString('utf8'));
+        manifest = await curlJson(manifestUrl, 8000);
     } catch {
         throw Object.assign(new Error('bad manifest'), { status: 400 });
     }

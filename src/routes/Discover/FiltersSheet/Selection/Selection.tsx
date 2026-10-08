@@ -2,7 +2,7 @@
 
 import React, { useCallback, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import Icon from '@stremio/stremio-icons/react';
+import Icon from 'stremio/components/BrandIcons';
 import TextInput from 'stremio/components/TextInput';
 import Overview from './Overview';
 import Choices from './Choices';

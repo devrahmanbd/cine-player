@@ -2,7 +2,7 @@
 
 import React, { useMemo, useCallback, useState, useRef, forwardRef, memo } from 'react';
 import classNames from 'classnames';
-import Icon from '@stremio/stremio-icons/react';
+import Icon from 'stremio/components/BrandIcons';
 import { useCore } from 'stremio/core';
 import { CONSTANTS } from 'stremio/common';
 import { filterVisibleEpgPrograms, getEpgDescription, getEpgProgress, getEpgTitle, getEpgValue, getEpgTimeRange, useEpgNow } from 'stremio/common/EPG';

@@ -9,7 +9,7 @@ const Modal = require('stremio/router/Modal');
 const { default: useRouteFocused } = require('stremio/common/useRouteFocused');
 const { default: Button } = require('stremio/components/Button');
 const { default: Checkbox } = require('stremio/components/Checkbox');
-const { default: Icon } = require('@stremio/stremio-icons/react');
+const { default: Icon } = require('stremio/components/BrandIcons');
 const styles = require('./styles');
 
 const ModalDialog = ({ className, title, buttons, checkboxes, children, dataset, onCloseRequest, background, ...props }) => {

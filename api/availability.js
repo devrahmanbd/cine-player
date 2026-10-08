@@ -17,42 +17,36 @@ function manifestBase(manifestUrl) {
 }
 
 async function fetchJson(url, timeoutMs) {
-    const response = await fetch(url, { signal: AbortSignal.timeout(timeoutMs) });
-    if (!response.ok) throw new Error(`bad status ${response.status}`);
-    return response.json();
+    return curlJson(url, timeoutMs);
 }
 
 const PROBE_TIMEOUT_MS = 8000;
 const PROBE_MAX_URLS = 5;
-const PROBE_UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36';
+const { curlJson, curlStatus } = require('./curlfetch');
 
 // Liveness probe: a listed stream counts only if its file responds.
+// curl-based (addon/file hosts bot-wall Node's TLS fingerprint).
 // HEAD first (cheap); hosts rejecting HEAD (405/501) fall back to a
 // single-byte ranged GET. Accept 200/206. Anything else (404, expired
 // signatures, timeouts, non-http) = dead.
 async function probeStreamUrl(url) {
     if (typeof url !== 'string') return false;
-    let parsed;
     try {
-        parsed = new URL(url);
-    } catch {
-        return false;
-    }
-    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return false;
-    const headers = { 'user-agent': PROBE_UA };
-    try {
-        const head = await fetch(url, { method: 'HEAD', headers, signal: AbortSignal.timeout(PROBE_TIMEOUT_MS) });
-        if (head.status === 200 || head.status === 206) return true;
-        if (head.status !== 405 && head.status !== 501) return false;
+        const parsed = new URL(url);
+        if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return false;
     } catch {
         return false;
     }
     try {
-        const ranged = await fetch(url, {
-            headers: { ...headers, range: 'bytes=0-0' },
-            signal: AbortSignal.timeout(PROBE_TIMEOUT_MS),
-        });
-        return ranged.status === 200 || ranged.status === 206;
+        const head = await curlStatus(url, { timeoutMs: PROBE_TIMEOUT_MS });
+        if (head === 200 || head === 206) return true;
+        if (head !== 405 && head !== 501) return false;
+    } catch {
+        return false;
+    }
+    try {
+        const ranged = await curlStatus(url, { range: true, timeoutMs: PROBE_TIMEOUT_MS });
+        return ranged === 200 || ranged === 206;
     } catch {
         return false;
     }
@@ -90,11 +84,15 @@ async function resolveAvailability(db, items) {
         if (base) bases.push(base);
     }
     let availableCount = 0;
+    let writtenCount = 0;
+    let skippedCount = 0;
     for (const item of valid) {
         const candidates = [];
+        let informed = false;
         for (const base of bases) {
             try {
                 const data = await fetchJson(`${base}/stream/${item.type}/${item.id}.json`, 8000);
+                informed = true;
                 if (data && Array.isArray(data.streams)) {
                     for (const stream of data.streams) {
                         if (stream && typeof stream.url === 'string') candidates.push(stream.url);
@@ -103,6 +101,12 @@ async function resolveAvailability(db, items) {
             } catch {
                 // One bad addon never aborts the item/batch.
             }
+        }
+        // No addon answered: host outage, not information. Keep the old row
+        // (stale → treated as unknown → shown) instead of blanking the title.
+        if (!informed) {
+            skippedCount += 1;
+            continue;
         }
         const total = await countAliveUrls(candidates);
         const now = new Date().toISOString();
@@ -124,8 +128,9 @@ async function resolveAvailability(db, items) {
                 item.key,
             ]);
         }
+        writtenCount += 1;
     }
-    return { checked: valid.length, available: availableCount };
+    return { checked: writtenCount, available: availableCount, skipped: skippedCount };
 }
 
 module.exports = { manifestBase, fetchJson, probeStreamUrl, countAliveUrls, resolveAvailability };

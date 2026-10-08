@@ -2,7 +2,7 @@
 
 import React from 'react';
 import classNames from 'classnames';
-import Icon from '@stremio/stremio-icons/react';
+import Icon from 'stremio/components/BrandIcons';
 import Button from 'stremio/components/Button';
 import Image from 'stremio/components/Image';
 import { EPGProgram, EPG_TICK_MINUTES, HOUR_IN_MS, epgDayWindow } from 'stremio/common/EPG';

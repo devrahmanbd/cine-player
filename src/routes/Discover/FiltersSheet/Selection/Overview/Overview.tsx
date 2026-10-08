@@ -3,7 +3,7 @@
 import React, { useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import classNames from 'classnames';
-import Icon from '@stremio/stremio-icons/react';
+import Icon from 'stremio/components/BrandIcons';
 import { Input } from '../../types';
 import styles from './Overview.less';
 

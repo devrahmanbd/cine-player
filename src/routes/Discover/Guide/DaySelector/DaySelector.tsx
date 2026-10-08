@@ -3,7 +3,7 @@
 import React, { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import classNames from 'classnames';
-import Icon from '@stremio/stremio-icons/react';
+import Icon from 'stremio/components/BrandIcons';
 import { Button } from 'stremio/components';
 import useMediaQuery from 'stremio/common/useMediaQuery';
 import screenSizes from 'stremio/common/screen-sizes.less';

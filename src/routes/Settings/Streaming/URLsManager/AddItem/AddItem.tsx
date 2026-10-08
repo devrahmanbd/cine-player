@@ -2,7 +2,7 @@
 
 import React, { ChangeEvent, useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import Icon from '@stremio/stremio-icons/react';
+import Icon from 'stremio/components/BrandIcons';
 import { Button, TextInput } from 'stremio/components';
 import styles from './AddItem.less';
 

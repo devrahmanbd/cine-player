@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import Icon from '@stremio/stremio-icons/react';
+import Icon from 'stremio/components/BrandIcons';
 import { EPGProgram, formatEpgTimeRange, getEpgProgress } from 'stremio/common/EPG';
 import Image from 'stremio/components/Image';
 import styles from './ProgramInfo.less';

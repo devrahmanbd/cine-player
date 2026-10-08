@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import classnames from 'classnames';
 import FocusLock from 'react-focus-lock';
-import Icon from '@stremio/stremio-icons/react';
+import Icon from 'stremio/components/BrandIcons';
 import { Button } from 'stremio/components';
 import styles from './styles.less';
 

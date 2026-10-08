@@ -3,7 +3,7 @@
 import React, { useCallback, useLayoutEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import classNames from 'classnames';
-import Icon from '@stremio/stremio-icons/react';
+import Icon from 'stremio/components/BrandIcons';
 import Button from 'stremio/components/Button';
 import { EPGProgram, epgDayWindow } from 'stremio/common/EPG';
 import useScheduleViewport from './useScheduleViewport';

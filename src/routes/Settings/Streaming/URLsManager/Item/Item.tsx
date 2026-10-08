@@ -4,7 +4,7 @@ import React, { useCallback, useMemo } from 'react';
 import { DEFAULT_STREAMING_SERVER_URL } from 'stremio/common/CONSTANTS';
 import { useTranslation } from 'react-i18next';
 import { Button, RadioButton } from 'stremio/components';
-import Icon from '@stremio/stremio-icons/react';
+import Icon from 'stremio/components/BrandIcons';
 import styles from './Item.less';
 import classNames from 'classnames';
 

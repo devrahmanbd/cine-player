@@ -1,7 +1,7 @@
 // Copyright (C) 2017-2026 Smart code 203358507
 
 import React, { forwardRef } from 'react';
-import Icon from '@stremio/stremio-icons/react';
+import Icon from 'stremio/components/BrandIcons';
 import Button from 'stremio/components/Button';
 import Image from 'stremio/components/Image';
 import { EPGProgram, epgDateKey } from 'stremio/common/EPG';

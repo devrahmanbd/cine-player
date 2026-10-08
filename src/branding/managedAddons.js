@@ -1,10 +1,11 @@
 // Copyright (C) 2026 stremio-linux fork. GPL-2.0.
-// Boot-time exact-set enforcement for admin-managed addons.
+// Boot-time install for admin-managed addons.
 //
-// Each visitor profile must converge to exactly the set curated via
+// Each visitor profile converges to include the set curated via
 // GET /api/addons (enabled [{ id, manifest_url, name, position }]):
 // managed addons missing locally are installed (manifest fetched from
-// manifest_url), installed addons outside the managed set are removed.
+// manifest_url, with same-origin proxy fallback). Install-only: removal is
+// never attempted (core-protected builtins reject it with error toasts).
 // Fail-silent by design: boot must never break because of addon sync.
 
 async function fetchManifest(url, timeoutMs) {
@@ -90,14 +91,7 @@ async function syncManagedAddons(core, managed) {
             const manifest = await fetchManifest(url, 5000);
             if (manifest !== null) fetched.push({ transportUrl: url, manifest: manifest });
         }
-        const managedIds = new Set(fetched.map((item) => item.manifest.id));
 
-        const isManaged = (addon) => {
-            if (!addon || typeof addon.transportUrl !== 'string') return false;
-            if (managedUrls.has(addon.transportUrl)) return true;
-            const id = addon.manifest && addon.manifest.id;
-            return typeof id === 'string' && managedIds.has(id);
-        };
         const isInstalled = (transportUrl, manifestId) => {
             return list.some((addon) => {
                 if (!addon) return false;
@@ -119,14 +113,10 @@ async function syncManagedAddons(core, managed) {
             }
         }
 
-        for (const addon of list) {
-            if (isManaged(addon)) continue;
-            try {
-                await dispatch(core, 'UninstallAddon', addon);
-            } catch {
-                // Skip uninstall failures silently; boot must never break.
-            }
-        }
+        // NOTE: deliberately install-only. Uninstalling anything else hits
+        // core-protected builtins (Cinemeta etc.) which reject with noisy
+        // "Addon is protected" error toasts, while visitor-installed addons
+        // can't exist (addon UI is hidden) — so removal can only harm.
     } catch {
         // Fail silent: boot must never break because of addon sync.
     }

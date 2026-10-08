@@ -45,6 +45,9 @@ describe('availability', () => {
             } else if (req.url === '/stream/movie/tt333.json') {
                 res.writeHead(200, { 'content-type': 'application/json' });
                 res.end(JSON.stringify({ streams: [{ url: `${manifestBase}/dead` }] }));
+            } else if (req.url.startsWith('/stream/')) {
+                res.writeHead(200, { 'content-type': 'application/json' });
+                res.end(JSON.stringify({ streams: [] }));
             } else if (req.url === '/alive') {
                 res.writeHead(200, { 'content-type': 'video/mp4' });
                 res.end('fake-bytes');
@@ -144,5 +147,28 @@ describe('availability', () => {
         assert.equal(res.status, 200);
         const body = await res.json();
         assert.equal(body.checked, 200);
+    });
+
+    it('addon outage preserves existing rows instead of blanking titles', async () => {
+        await db.query(
+            "INSERT INTO availability (meta_key, available, streams, checked_at) VALUES ('movie:tt000', 1, 3, '2026-10-08T00:00:00.000Z')"
+        );
+        await db.query('DELETE FROM addons');
+        const res = await fetch(`${base}/api/availability/refresh`, {
+            method: 'POST',
+            headers: { 'content-type': 'application/json', cookie },
+            body: JSON.stringify({ items: [{ type: 'movie', id: 'tt000' }] }),
+        });
+        assert.equal(res.status, 200);
+        const outage = await res.json();
+        assert.equal(outage.checked, 0);
+        assert.equal(outage.skipped, 1);
+        const rows = await db.query('SELECT available, streams, checked_at FROM availability WHERE meta_key = ?', [
+            'movie:tt000',
+        ]);
+        assert.equal(rows.length, 1);
+        assert.equal(rows[0].available, 1);
+        assert.equal(rows[0].streams, 3);
+        assert.equal(rows[0].checked_at, '2026-10-08T00:00:00.000Z');
     });
 });

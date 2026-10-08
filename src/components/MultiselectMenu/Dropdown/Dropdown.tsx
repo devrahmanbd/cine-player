@@ -5,7 +5,7 @@ import { Button } from 'stremio/components';
 import { useTranslation } from 'react-i18next';
 import classNames from 'classnames';
 import Option from './Option';
-import Icon from '@stremio/stremio-icons/react';
+import Icon from 'stremio/components/BrandIcons';
 import { getInterfaceRect } from 'stremio/common/interfaceScale';
 import styles from './Dropdown.less';
 
