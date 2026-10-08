@@ -37,7 +37,7 @@ describe('seed', () => {
             assert.ok(slot.code.length > 0, `${slot.slot_key} has seeded code`);
         }
         const popunder = slots.find((s) => s.slot_key === 'popunder');
-        assert.equal(popunder.enabled, 1);
+        assert.equal(popunder.enabled, 0);
         const banner = slots.find((s) => s.slot_key === 'banner_728x90');
         assert.equal(banner.enabled, 0);
         const admins = await db.query('SELECT username, password_hash FROM admins');

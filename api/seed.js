@@ -31,8 +31,10 @@ const DEFAULT_CODES = {
     smartlink: 'https://directyp.org/4/1cc5cefd604de292f5efef7a5e835b4c',
 };
 
-// Only site-wide units default ON; display slots stay OFF until the approved domain is live.
-const DEFAULT_ENABLED = { popunder: 1, socialbar: 1 };
+// All units default OFF until the admin enables them from /admin.
+// (Popunder/social scripts inject page-wide overlays; keep them off while
+// the site itself is under test.)
+const DEFAULT_ENABLED = {};
 
 function hashPassword(password) {
     const salt = crypto.randomBytes(16).toString('hex');
