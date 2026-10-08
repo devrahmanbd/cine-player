@@ -32,10 +32,10 @@ const Stream = ({ className = '', compact = false, isEpg = false, videoId = unde
         }
     }, [openMenu]);
     const popupLabelOnContextMenu = React.useCallback((event) => {
-        if (!event.nativeEvent.togglePopupPrevented && !event.nativeEvent.ctrlKey && !event.nativeEvent.shiftKey) {
-            event.preventDefault();
-        }
-    }, [toggleMenu]);
+        // Native menu is always suppressed on stream rows: link URLs must
+        // never be reachable (no copy/download/external exits).
+        event.preventDefault();
+    }, []);
     const popupLabelOnLongPress = React.useCallback((event) => {
         if (event.nativeEvent.pointerType !== 'mouse' && !event.nativeEvent.togglePopupPrevented) {
             toggleMenu();
@@ -46,9 +46,7 @@ const Stream = ({ className = '', compact = false, isEpg = false, videoId = unde
     }, []);
     const popupMenuOnContextMenu = React.useCallback((event) => {
         event.nativeEvent.togglePopupPrevented = true;
-        if (!event.nativeEvent.ctrlKey && !event.nativeEvent.shiftKey) {
-            event.preventDefault();
-        }
+        event.preventDefault();
     }, []);
     const popupMenuOnClick = React.useCallback((event) => {
         event.nativeEvent.togglePopupPrevented = true;

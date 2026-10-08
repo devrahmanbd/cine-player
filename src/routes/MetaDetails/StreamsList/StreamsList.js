@@ -169,7 +169,12 @@ const StreamsList = ({ className, video, type, externalPlayerCallbackCanMarkWatc
                             </div>
                             :
                             <React.Fragment>
-                                <div className={styles['streams-container']} ref={streamsContainerRef}>
+                                <div
+                                    className={styles['streams-container']}
+                                    ref={streamsContainerRef}
+                                    onContextMenu={(event) => event.preventDefault()}
+                                    onDragStart={(event) => event.preventDefault()}
+                                >
                                     {filteredStreams.map((stream, index) => (
                                         <Stream
                                             key={index}
