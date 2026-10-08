@@ -3,9 +3,9 @@
 // document title, favicon and CSS variables. Fail-open with compiled defaults.
 const React = require('react');
 const PropTypes = require('prop-types');
-const { useCore } = require('stremio/core');
-const { injectSiteScripts } = require('./adInjector');
+const { injectSiteScripts, snapshotBody, purgeNonAppNodes, isAdminRoute } = require('./adInjector');
 const { syncManagedAddons } = require('./managedAddons');
+const { useCore } = require('stremio/core');
 
 const DEFAULT_BRAND = {
     site_name: 'LinuxStream',
@@ -42,6 +42,7 @@ function applyBrand(brand) {
 
 const BrandingProvider = ({ children }) => {
     const [state, setState] = React.useState({ brand: DEFAULT_BRAND, ads: {}, ready: false });
+    useAdminAdGuard();
     const core = useCore();
     const managedSyncStarted = React.useRef(false);
 
@@ -60,6 +61,7 @@ const BrandingProvider = ({ children }) => {
                     };
                 }
                 applyBrand(nextBrand);
+                snapshotBody();
                 injectSiteScripts(ads);
                 setState({ brand: nextBrand, ads, ready: true });
             })
@@ -100,6 +102,16 @@ const BrandingProvider = ({ children }) => {
 
     return <BrandingContext.Provider value={state}>{children}</BrandingContext.Provider>;
 };
+
+function useAdminAdGuard() {
+    React.useEffect(() => {
+        const onHashChange = () => {
+            if (isAdminRoute()) purgeNonAppNodes();
+        };
+        window.addEventListener('hashchange', onHashChange);
+        return () => window.removeEventListener('hashchange', onHashChange);
+    }, []);
+}
 
 BrandingProvider.propTypes = {
     children: PropTypes.node,

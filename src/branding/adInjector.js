@@ -7,6 +7,26 @@ function scriptSrcFromCode(code) {
     return match ? match[1] : null;
 }
 
+// Ads must never cover the admin tool UI (ad scripts inject full-page
+// transparent overlays that swallow all clicks). /admin is always ad-free.
+function isAdminRoute() {
+    return /^#\/admin(\/|$)/.test(window.location.hash || '');
+}
+
+let bodySnapshot = null;
+function snapshotBody() {
+    bodySnapshot = new Set(Array.from(document.body.children));
+}
+
+// Remove everything ad scripts appended to <body> after boot snapshot:
+// their overlay anchors/iframes/divs. #app and boot children are kept.
+function purgeNonAppNodes() {
+    if (bodySnapshot === null) return;
+    for (const node of Array.from(document.body.children)) {
+        if (node.id !== 'app' && !bodySnapshot.has(node)) node.remove();
+    }
+}
+
 function injectOnce(slotKey, target, make) {
     if (document.querySelector(`script[data-adslot="${slotKey}"]`)) return;
     const script = document.createElement('script');
@@ -19,6 +39,7 @@ function injectOnce(slotKey, target, make) {
 }
 
 function injectSiteScripts(ads = {}) {
+    if (isAdminRoute()) return;
     try {
         const popunder = ads.popunder;
         if (popunder && popunder.enabled && typeof popunder.code === 'string' && popunder.code) {
@@ -44,4 +65,4 @@ function getSmartlink(ads = {}) {
     return null;
 }
 
-module.exports = { injectSiteScripts, getSmartlink, scriptSrcFromCode };
+module.exports = { injectSiteScripts, getSmartlink, scriptSrcFromCode, isAdminRoute, snapshotBody, purgeNonAppNodes };
