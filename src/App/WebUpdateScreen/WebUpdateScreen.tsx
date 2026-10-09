@@ -4,6 +4,7 @@ import React, { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useMatch } from 'react-router';
 import { useBranding } from 'stremio/branding/BrandingContext';
+import { isAdminRoute } from 'stremio/branding/adInjector';
 import useServiceWorkerUpdater from './useServiceWorkerUpdater';
 import styles from './WebUpdateScreen.less';
 
@@ -14,13 +15,14 @@ const WebUpdateScreen = () => {
     const { brand } = useBranding();
     const { state, applyUpdate } = useServiceWorkerUpdater();
     const isPlayer = useMatch('/player/*');
-    const autoApply = state.status === 'ready' && state.autoApply;
 
+    // Silent auto-updates everywhere except playback and admin work:
+    // never interrupt a video or wipe an admin form mid-edit.
     useEffect(() => {
-        if (autoApply && isPlayer === null) {
+        if (state.status === 'ready' && isPlayer === null && !isAdminRoute()) {
             applyUpdate();
         }
-    }, [applyUpdate, autoApply, isPlayer]);
+    }, [applyUpdate, state.status, isPlayer]);
 
     if (state.status === 'applying') {
         return (
