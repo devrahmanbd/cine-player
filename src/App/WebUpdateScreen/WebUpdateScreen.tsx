@@ -3,7 +3,6 @@
 import React, { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useMatch } from 'react-router';
-import { UpdateBanner } from 'stremio/components';
 import { useBranding } from 'stremio/branding/BrandingContext';
 import useServiceWorkerUpdater from './useServiceWorkerUpdater';
 import styles from './WebUpdateScreen.less';
@@ -13,14 +12,9 @@ const STOCK_LOGO = '/brand/logo.svg';
 const WebUpdateScreen = () => {
     const { t } = useTranslation();
     const { brand } = useBranding();
-    const { state, dismissed, applyUpdate, dismissUpdate } = useServiceWorkerUpdater();
+    const { state, applyUpdate } = useServiceWorkerUpdater();
     const isPlayer = useMatch('/player/*');
     const autoApply = state.status === 'ready' && state.autoApply;
-    const promptVisible =
-        !dismissed &&
-        isPlayer === null &&
-        (state.status === 'ready' || state.status === 'reload-ready');
-    const updateTitle = `${brand.site_name} update available`;
 
     useEffect(() => {
         if (autoApply && isPlayer === null) {
@@ -51,17 +45,8 @@ const WebUpdateScreen = () => {
         );
     }
 
-    return (
-        <UpdateBanner
-            className={styles['web-update-banner']}
-            visible={promptVisible}
-            label={updateTitle}
-            actionLabel={t('RELOAD_UI')}
-            closeLabel={t('BUTTON_CLOSE')}
-            onAction={applyUpdate}
-            onClose={dismissUpdate}
-        />
-    );
+    // No update nag banner: updates auto-apply silently in the background.
+    return null;
 };
 
 export default WebUpdateScreen;
