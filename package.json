@@ -10,6 +10,7 @@
         "start": "webpack serve --mode development",
         "start-prod": "webpack serve --mode production",
         "build": "webpack --mode production",
+        "deploy": "sh scripts/deploy-check.sh",
         "test": "jest",
         "lint": "eslint src --max-warnings 287",
         "scan-translations": "pnpx jest ./tests/i18nScan.test.js"
