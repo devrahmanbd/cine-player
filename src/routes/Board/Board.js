@@ -13,6 +13,7 @@ const styles = require('./styles');
 const { default: StreamingServerWarning } = require('./StreamingServerWarning');
 const AdSlot = require('../../components/AdSlot/AdSlot');
 const Billboard = require('../../components/Netflix/Billboard');
+const ErrorBoundary = require('../../components/ErrorBoundary/ErrorBoundary');
 
 const THRESHOLD = 5;
 
@@ -235,7 +236,9 @@ const Board = () => {
                 <div ref={scrollContainerRef} className={styles['board-content']} onScroll={onScroll}>
                     {
                         billboardItem !== null ?
-                            <Billboard item={billboardItem} />
+                            <ErrorBoundary name="billboard">
+                                <Billboard item={billboardItem} />
+                            </ErrorBoundary>
                             :
                             null
                     }

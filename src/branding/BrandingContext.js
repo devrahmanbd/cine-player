@@ -6,6 +6,7 @@ const PropTypes = require('prop-types');
 const { injectSiteScripts, snapshotBody, purgeNonAppNodes, isAdminRoute } = require('./adInjector');
 const { detectAdblock, watchAdblock, getAdblockKind } = require('./adblockDetector');
 const { AdblockWall } = require('./AdblockWall');
+const ErrorBoundary = require('../components/ErrorBoundary/ErrorBoundary');
 const { resolveAdblockMode, readFirstSeen, writeFirstSeen, isActionableKind } = require('./adblockLogic');
 const { syncManagedAddons } = require('./managedAddons');
 const { ensureDefaultStreamingServer } = require('./defaultStreaming');
@@ -187,7 +188,7 @@ const BrandingProvider = ({ children }) => {
     return (
         <BrandingContext.Provider value={state}>
             <AdblockWall mode={adblockMode} onDismiss={() => setWallDismissed(true)} />
-            {children}
+            <ErrorBoundary name="brand-children">{children}</ErrorBoundary>
         </BrandingContext.Provider>
     );
 };

@@ -8,6 +8,7 @@ import { useProfile } from 'stremio/common';
 import { supportsViewTransitions } from 'stremio/common/Platform/device';
 import routerPaths from './routerPaths';
 import Route from './Route';
+import ErrorBoundary from '../components/ErrorBoundary/ErrorBoundary';
 
 type RouterPath = typeof routerPaths[number];
 type CachedView = {
@@ -94,7 +95,11 @@ const Routes = () => {
                     <RRoutes key={view.key} location={view.location}>
                         <RRoute
                             path={view.route.path}
-                            element={<Route component={view.route.element} focused={index === visibleViews.length - 1} />}
+                            element={
+                                <ErrorBoundary name={`route:${view.route.path}`}>
+                                    <Route component={view.route.element} focused={index === visibleViews.length - 1} />
+                                </ErrorBoundary>
+                            }
                         />
                     </RRoutes>
                 ))
