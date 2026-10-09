@@ -12,6 +12,8 @@ const { Button, Image, MultiselectMenu } = require('stremio/components');
 const { useCore } = require('stremio/core');
 const Stream = require('./Stream');
 const styles = require('./styles');
+const { isPlayableStream } = require('../../../branding/streamNames');
+const { fetchBlockedPatterns } = require('../../../branding/streamPatterns');
 const { usePlatform, useProfile } = require('stremio/common');
 const { default: SeasonEpisodePicker } = require('../EpisodePicker');
 
@@ -26,6 +28,16 @@ const StreamsList = ({ className, video, type, externalPlayerCallbackCanMarkWatc
     const goBack = useGoBack();
     const streamsContainerRef = React.useRef(null);
     const [selectedAddon, setSelectedAddon] = React.useState(ALL_ADDONS_KEY);
+    const [blockedPatterns, setBlockedPatterns] = React.useState([]);
+    React.useEffect(() => {
+        let cancelled = false;
+        fetchBlockedPatterns().then((patterns) => {
+            if (!cancelled) setBlockedPatterns(patterns);
+        });
+        return () => {
+            cancelled = true;
+        };
+    }, []);
     const onAddonSelected = React.useCallback((value) => {
         streamsContainerRef.current.scrollTo({ top: 0, left: 0, behavior: platform.name === 'ios' ? 'smooth' : 'instant' });
         setSelectedAddon(value);
@@ -50,7 +62,7 @@ const StreamsList = ({ className, video, type, externalPlayerCallbackCanMarkWatc
             .reduce((streamsByAddon, streams) => {
                 streamsByAddon[streams.addon.transportUrl] = {
                     addon: streams.addon,
-                    streams: streams.content.content.map((stream) => ({
+                    streams: streams.content.content.filter((stream) => isPlayableStream(stream, blockedPatterns)).map((stream) => ({
                         ...stream,
                         onClick: () => {
                             core.transport.analytics({
@@ -75,7 +87,7 @@ const StreamsList = ({ className, video, type, externalPlayerCallbackCanMarkWatc
 
                 return streamsByAddon;
             }, {});
-    }, [props.streams, profile.settings.playerType]);
+    }, [props.streams, profile.settings.playerType, blockedPatterns]);
     const effectiveSelectedAddon = Object.prototype.hasOwnProperty.call(streamsByAddon, selectedAddon) ? selectedAddon : ALL_ADDONS_KEY;
     const filteredStreams = React.useMemo(() => {
         return effectiveSelectedAddon === ALL_ADDONS_KEY ?

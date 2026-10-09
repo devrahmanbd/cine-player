@@ -1,7 +1,7 @@
 // Copyright (C) 2026 stremio-linux fork. GPL-2.0.
 /* global describe, test, expect */
 
-const { maskStreamName, maskStreamDescription } = require('./streamNames');
+const { maskStreamName, maskStreamDescription, isPlayableStream } = require('./streamNames');
 
 describe('maskStreamName', () => {
     test('strips leading bare brand and trailing size', () => {
@@ -67,5 +67,97 @@ describe('maskStreamDescription', () => {
         const out = maskStreamDescription('[Lonely]');
         expect(typeof out).toBe('string');
         expect(out.length).toBeGreaterThan(0);
+    });
+});
+
+describe('isPlayableStream', () => {
+    test('keeps real media urls', () => {
+        expect(isPlayableStream({ url: 'https://cdn.example/f.mkv' })).toBe(true);
+        expect(isPlayableStream({ url: 'magnet:?xt=abc' })).toBe(true);
+    });
+
+    test('drops promo cards with externalUrl (donation, discord)', () => {
+        expect(isPlayableStream({ name: 'Donation needed.', externalUrl: 'http://example.com/donation.html' })).toBe(false);
+        expect(isPlayableStream({ name: 'Join the Discord server', externalUrl: 'https://discord.gg/x' })).toBe(false);
+    });
+
+    test('drops url-less and invalid entries', () => {
+        expect(isPlayableStream({ name: 'No url here' })).toBe(false);
+        expect(isPlayableStream({})).toBe(false);
+        expect(isPlayableStream(null)).toBe(false);
+        expect(isPlayableStream('https://cdn.example/f.mkv')).toBe(false);
+    });
+
+    test('R1 blocks discord.gg host in url even with videoSize', () => {
+        expect(isPlayableStream({
+            url: 'https://discord.gg/invite123',
+            behaviorHints: { videoSize: 1234 }
+        })).toBe(false);
+    });
+
+    test('R1 blocks t.me host in url', () => {
+        expect(isPlayableStream({ url: 'https://t.me/somechannel' })).toBe(false);
+    });
+
+    test('R1 blocks patreon.com subdomain host in url', () => {
+        expect(isPlayableStream({ url: 'https://www.patreon.com/creator' })).toBe(false);
+    });
+
+    test('R1 ignores unparseable url (fail-open, no block)', () => {
+        expect(isPlayableStream({ url: 'not a url discord.gg' })).toBe(true);
+    });
+
+    test('R2 blocks donat mention without videoSize', () => {
+        expect(isPlayableStream({
+            url: 'https://cdn.example/movie.mkv',
+            name: 'Please donate to keep us alive'
+        })).toBe(false);
+    });
+
+    test('R2 allows donat documentary with videoSize (gated)', () => {
+        expect(isPlayableStream({
+            url: 'https://cdn.example/movie.mkv',
+            name: 'Documentary about donations',
+            behaviorHints: { videoSize: 987654 }
+        })).toBe(true);
+    });
+
+    test('R3 allows legit season pack testzip.php with videoSize', () => {
+        expect(isPlayableStream({
+            url: 'https://cdn.example/testzip.php?id=abc123',
+            behaviorHints: { videoSize: 456789 }
+        })).toBe(true);
+    });
+
+    test('R3 blocks page-like url without videoSize', () => {
+        expect(isPlayableStream({
+            url: 'https://cdn.example/testzip.php?id=abc123'
+        })).toBe(false);
+    });
+
+    test('R3 blocks donation.html url paired with externalUrl', () => {
+        expect(isPlayableStream({
+            url: 'https://cdn.example/donation.html',
+            externalUrl: 'https://cdn.example/donation.html'
+        })).toBe(false);
+    });
+
+    test('extraPatterns custom substring blocks matching entry', () => {
+        expect(isPlayableStream(
+            { url: 'https://cdn.example/movie.mkv', name: 'My-Promo Release' },
+            ['my-promo']
+        )).toBe(false);
+    });
+
+    test('extraPatterns non-matching entry stays playable', () => {
+        expect(isPlayableStream(
+            { url: 'https://cdn.example/movie.mkv', name: 'Clean Release' },
+            ['my-promo']
+        )).toBe(true);
+    });
+
+    test('magnet and unknown future CDN shapes stay playable (fail-open)', () => {
+        expect(isPlayableStream({ url: 'magnet:?xt=urn:btih:abc123' })).toBe(true);
+        expect(isPlayableStream({ url: 'https://future-cdn.example/stream/xyz?token=1' })).toBe(true);
     });
 });

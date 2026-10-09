@@ -91,6 +91,14 @@ function parseAddonId(pathname) {
     return id;
 }
 
+function parseBlockedPatternId(pathname) {
+    const match = /^\/api\/blocked-patterns\/([^/]+)$/.exec(pathname);
+    if (!match) return null;
+    const id = Number(match[1]);
+    if (!Number.isInteger(id) || id <= 0) return null;
+    return id;
+}
+
 function startServer({ port = 3001, db, uploadsDir } = {}) {
     const sessions = new Map();
     // Single-instance sessions: in-memory Map (restart logs admins out).
@@ -254,6 +262,49 @@ function startServer({ port = 3001, db, uploadsDir } = {}) {
                 const found = await db.query('SELECT id FROM addons WHERE id = ?', [addonId]);
                 if (found.length === 0) return send(response, 404, { error: 'not found' });
                 await db.query('DELETE FROM addons WHERE id = ?', [addonId]);
+                return send(response, 200, { ok: true });
+            }
+
+            if (request.method === 'GET' && url.pathname === '/api/blocked-patterns') {
+                const rows = await db.query('SELECT id, pattern FROM blocked_patterns ORDER BY id ASC');
+                return send(response, 200, rows);
+            }
+
+            if (request.method === 'POST' && url.pathname === '/api/blocked-patterns') {
+                if (!authed) return send(response, 401, { error: 'unauthorized' });
+                const body = await readJson(request, 64 * 1024);
+                const pattern = typeof body.pattern === 'string' ? body.pattern.trim() : '';
+                if (pattern.length < 2 || pattern.length > 120) {
+                    return send(response, 400, { error: 'bad pattern' });
+                }
+                const existing = await db.query('SELECT id FROM blocked_patterns WHERE pattern = ?', [
+                    pattern,
+                ]);
+                if (existing.length > 0) return send(response, 409, { error: 'already exists' });
+                try {
+                    await db.query('INSERT INTO blocked_patterns (pattern, created_at) VALUES (?, ?)', [
+                        pattern,
+                        new Date().toISOString(),
+                    ]);
+                } catch (error) {
+                    if (/UNIQUE|unique|duplicate|ER_DUP_ENTRY/i.test(error.message || '')) {
+                        return send(response, 409, { error: 'already exists' });
+                    }
+                    throw error;
+                }
+                const rows = await db.query('SELECT id, pattern FROM blocked_patterns WHERE pattern = ?', [
+                    pattern,
+                ]);
+                return send(response, 200, rows[0]);
+            }
+
+            if (request.method === 'DELETE' && url.pathname.startsWith('/api/blocked-patterns/')) {
+                if (!authed) return send(response, 401, { error: 'unauthorized' });
+                const patternId = parseBlockedPatternId(url.pathname);
+                if (patternId === null) return send(response, 404, { error: 'not found' });
+                const found = await db.query('SELECT id FROM blocked_patterns WHERE id = ?', [patternId]);
+                if (found.length === 0) return send(response, 404, { error: 'not found' });
+                await db.query('DELETE FROM blocked_patterns WHERE id = ?', [patternId]);
                 return send(response, 200, { ok: true });
             }
 

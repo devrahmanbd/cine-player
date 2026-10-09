@@ -3,6 +3,7 @@
 // uploads. Session is an httpOnly cookie; /api/admin/me probes auth state.
 const React = require('react');
 const PropTypes = require('prop-types');
+const { clearBlockedPatternsCache } = require('../../branding/streamPatterns');
 
 // Admin is an internal, English-only tool (not part of the translated product
 // surface), so labels live in this map instead of raw JSX text, which the
@@ -38,6 +39,14 @@ const STR = {
     updateFailed: 'Update failed.',
     confirmRemove: 'Remove this addon?',
     noAddons: 'No addons yet.',
+    blockedTitle: 'Blocked patterns',
+    blockedPlaceholder: 'Pattern to block',
+    blockedAdd: 'Add pattern',
+    failedLoadBlocked: 'Failed to load blocked patterns',
+    blockedAdded: 'Pattern added.',
+    blockedRemoved: 'Pattern removed.',
+    confirmRemoveBlocked: 'Remove this pattern?',
+    noBlocked: 'No blocked patterns yet.',
 };
 
 const BRAND_FIELDS = ['site_name', 'tagline', 'logo_url', 'favicon_url', 'theme', 'accent'];
@@ -290,6 +299,57 @@ const AddonsForm = () => {
     );
 };
 
+const BlockedPatternsForm = () => {
+    const [patterns, setPatterns] = React.useState(null);
+    const [status, setStatus] = React.useState('');
+    const [input, setInput] = React.useState('');
+    React.useEffect(() => {
+        api('/api/blocked-patterns').then(setPatterns).catch(() => setStatus(STR.failedLoadBlocked));
+    }, []);
+    const add = async () => {
+        setStatus('');
+        try {
+            const created = await api('/api/blocked-patterns', { method: 'POST', body: JSON.stringify({ pattern: input }) });
+            setPatterns((prev) => (prev ? [...prev, created] : [created]));
+            setInput('');
+            clearBlockedPatternsCache();
+            setStatus(STR.blockedAdded);
+        } catch (err) {
+            setStatus(`${STR.addFailed} ${err.message}`);
+        }
+    };
+    const remove = async (entry) => {
+        if (!window.confirm(STR.confirmRemoveBlocked)) return;
+        setStatus('');
+        try {
+            await api(`/api/blocked-patterns/${entry.id}`, { method: 'DELETE' });
+            setPatterns((prev) => prev.filter((item) => item.id !== entry.id));
+            clearBlockedPatternsCache();
+            setStatus(STR.blockedRemoved);
+        } catch {
+            setStatus(STR.removeFailed);
+        }
+    };
+    if (patterns === null) return <div>{status || STR.loading}</div>;
+    return (
+        <div>
+            <h2>{STR.blockedTitle}</h2>
+            {patterns.length === 0 ? <div>{STR.noBlocked}</div> : null}
+            {patterns.map((entry) => (
+                <div key={entry.id} className={'admin-slot'}>
+                    <span>{entry.pattern}</span>
+                    <button onClick={() => remove(entry)}>{STR.remove}</button>
+                </div>
+            ))}
+            <div>
+                <input value={input} placeholder={STR.blockedPlaceholder} onChange={(e) => setInput(e.target.value)} />
+                <button onClick={add}>{STR.blockedAdd}</button>
+            </div>
+            {status ? <div className={'admin-status'}>{status}</div> : null}
+        </div>
+    );
+};
+
 const Admin = () => {
     const [authed, setAuthed] = React.useState(null);
     const [tab, setTab] = React.useState('brand');
@@ -313,7 +373,7 @@ const Admin = () => {
         <div className={'admin-page'}>
             <h1>{STR.siteAdmin}</h1>
             <div className={'admin-tabs'}>
-                {['brand', 'ads', 'uploads', 'addons'].map((name) => (
+                {['brand', 'ads', 'uploads', 'addons', 'blocked'].map((name) => (
                     <button key={name} className={tab === name ? 'admin-active' : ''} onClick={() => setTab(name)}>
                         {name}
                     </button>
@@ -324,6 +384,7 @@ const Admin = () => {
             {tab === 'ads' ? <AdsForm /> : null}
             {tab === 'uploads' ? <UploadsForm /> : null}
             {tab === 'addons' ? <AddonsForm /> : null}
+            {tab === 'blocked' ? <BlockedPatternsForm /> : null}
         </div>
     );
 };

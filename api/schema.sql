@@ -33,3 +33,8 @@ CREATE TABLE IF NOT EXISTS availability (
     streams INTEGER NOT NULL DEFAULT 0,
     checked_at TEXT NOT NULL DEFAULT ''
 );
+CREATE TABLE IF NOT EXISTS blocked_patterns (
+    id INTEGER PRIMARY KEY,
+    pattern TEXT NOT NULL UNIQUE,
+    created_at TEXT NOT NULL DEFAULT ''
+);
