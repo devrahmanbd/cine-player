@@ -104,9 +104,14 @@ function textOf(value) {
 
 function isPlayableStream(stream, extraPatterns = []) {
     if (!stream || typeof stream !== 'object') return false;
-    // R0 (keep): externalUrl non-empty → not playable; missing/empty url → not playable.
+    // R0 (keep): externalUrl non-empty → not playable; no playable source
+    // (url, torrent infoHash, or YouTube id) → not playable.
     if (typeof stream.externalUrl === 'string' && stream.externalUrl.length > 0) return false;
-    if (typeof stream.url !== 'string' || stream.url.length === 0) return false;
+    const hasSource =
+        (typeof stream.url === 'string' && stream.url.length > 0) ||
+        (typeof stream.infoHash === 'string' && stream.infoHash.length > 0) ||
+        (typeof stream.ytId === 'string' && stream.ytId.length > 0);
+    if (!hasSource) return false;
     // Array.prototype.filter passes (value, index, array); guard the optional param.
     if (!Array.isArray(extraPatterns)) extraPatterns = [];
 

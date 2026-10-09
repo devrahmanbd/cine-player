@@ -88,6 +88,12 @@ describe('isPlayableStream', () => {
         expect(isPlayableStream('https://cdn.example/f.mkv')).toBe(false);
     });
 
+    test('accepts torrent and youtube sources without http url', () => {
+        expect(isPlayableStream({ infoHash: 'abc123' })).toBe(true);
+        expect(isPlayableStream({ ytId: 'dQw4w9WgXcQ' })).toBe(true);
+        expect(isPlayableStream({ infoHash: 'abc123', externalUrl: 'https://evil.example/x' })).toBe(false);
+    });
+
     test('R1 blocks discord.gg host in url even with videoSize', () => {
         expect(isPlayableStream({
             url: 'https://discord.gg/invite123',
