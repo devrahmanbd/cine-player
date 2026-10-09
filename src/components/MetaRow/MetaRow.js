@@ -31,7 +31,10 @@ const MetaRow = ({ className, title, catalog, message, itemComponent, notificati
             <div className={styles['header-container']}>
                 {
                     typeof catalogTitle === 'string' && catalogTitle.length > 0 ?
-                        <div className={styles['title-container']} title={catalogTitle}>{catalogTitle}</div>
+                        <div className={styles['title-container']} title={catalogTitle}>
+                            <span className={styles['title-label']}>{catalogTitle}</span>
+                            <div className={styles['title-rule']} aria-hidden={true} />
+                        </div>
                         :
                         null
                 }
