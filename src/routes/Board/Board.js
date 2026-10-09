@@ -15,6 +15,23 @@ const AdSlot = require('../../components/AdSlot/AdSlot');
 const Billboard = require('../../components/Netflix/Billboard');
 
 const THRESHOLD = 5;
+
+// Catalog sections the house never shows (curated out): YouTube channels
+// and Public Domain rows. Matched against addon + catalog names so it
+// survives title formatting changes; extend the list for more.
+const HIDDEN_CATALOG_MATCHERS = [{ test: /youtube/i, type: 'channel' }, { test: /public domain/i }];
+
+function isHiddenCatalog(catalog) {
+    if (!catalog || typeof catalog !== 'object') return false;
+    const addonName =
+        (catalog.addon && (catalog.addon.name || (catalog.addon.manifest && catalog.addon.manifest.name))) || '';
+    const haystack = `${addonName} ${catalog.name || ''}`;
+    const type = String(catalog.type || '').toLowerCase();
+    return HIDDEN_CATALOG_MATCHERS.some((rule) => {
+        if (rule.type && rule.type !== type) return false;
+        return rule.test.test(haystack);
+    });
+}
 const AVAILABILITY_FRESHNESS_MS = 36 * 60 * 60 * 1000;
 const AVAILABILITY_FETCH_TIMEOUT_MS = 3000;
 const AVAILABILITY_DEBOUNCE_MS = 150;
@@ -82,16 +99,19 @@ const Board = () => {
             isNaN(profile.settings.streamingServerWarningDismissed.getTime()) ||
             profile.settings.streamingServerWarningDismissed.getTime() < Date.now());
     }, [profile.settings, streamingServer.settings]);
+    const boardCatalogs = React.useMemo(() => {
+        return Array.isArray(board.catalogs) ? board.catalogs.filter((catalog) => !isHiddenCatalog(catalog)) : board.catalogs;
+    }, [board.catalogs]);
     const { catalogRows, scrollContainerRef, onScroll } = useVisibleCatalogs({
-        catalogs: board.catalogs,
+        catalogs: boardCatalogs,
         loadRange: loadBoardRows,
         leadingRows: boardCatalogsOffset,
         preloadRows: THRESHOLD,
     });
     const [availability, setAvailability] = React.useState({});
     const availabilityKeys = React.useMemo(() => {
-        return collectAvailabilityKeys(board.catalogs);
-    }, [board.catalogs]);
+        return collectAvailabilityKeys(boardCatalogs);
+    }, [boardCatalogs]);
     const availabilityKeysIdentity = React.useMemo(() => {
         return availabilityKeys.join(',');
     }, [availabilityKeys]);
