@@ -6,7 +6,6 @@ const classnames = require('classnames');
 const UrlUtils = require('url');
 const { useTranslation } = require('react-i18next');
 const { default: Icon } = require('stremio/components/BrandIcons');
-const { default: Button } = require('stremio/components/Button');
 const { default: Image } = require('stremio/components/Image');
 const { default: ActionsGroup } = require('stremio/components/ActionsGroup');
 const ModalDialog = require('stremio/components/ModalDialog');
@@ -38,20 +37,17 @@ const MetaPreview = React.forwardRef(({ className, compact, name, logo, backgrou
             links
                 .filter((link) => link && typeof link.category === 'string' && typeof link.url === 'string')
                 .reduce((linksGroups, { category, name, url }) => {
-                    const { protocol, path, pathname, hostname } = UrlUtils.parse(url);
                     if (category === CONSTANTS.IMDB_LINK_CATEGORY) {
-                        if (hostname === 'imdb.com') {
-                            linksGroups.set(category, {
-                                label: name,
-                                href: `https://www.stremio.com/warning#${encodeURIComponent(url)}`
-                            });
-                        }
+                        linksGroups.set(category, {
+                            label: name
+                        });
                     } else if (category === CONSTANTS.SHARE_LINK_CATEGORY) {
                         linksGroups.set(category, {
                             label: name,
                             href: url
                         });
                     } else {
+                        const { protocol, path, pathname } = UrlUtils.parse(url);
                         if (protocol === 'stremio:') {
                             if (pathname !== null && ALLOWED_LINK_REDIRECTS.some((regexp) => pathname.match(regexp))) {
                                 if (!linksGroups.has(category)) {
@@ -62,14 +58,6 @@ const MetaPreview = React.forwardRef(({ className, compact, name, logo, backgrou
                                     href: `#${path}`
                                 });
                             }
-                        } else if (typeof hostname === 'string' && hostname.length > 0) {
-                            if (!linksGroups.has(category)) {
-                                linksGroups.set(category, []);
-                            }
-                            linksGroups.get(category).push({
-                                label: name,
-                                href: `https://www.stremio.com/warning#${encodeURIComponent(url)}`
-                            });
                         }
                     }
 
@@ -98,7 +86,8 @@ const MetaPreview = React.forwardRef(({ className, compact, name, logo, backgrou
             return null;
         }
 
-        return trailerStreams[0].deepLinks.player;
+        const href = trailerStreams[0].deepLinks.player;
+        return typeof href === 'string' && href.startsWith('#') ? href : null;
     }, [trailerStreams]);
     const renderLogoFallback = React.useCallback(() => (
         <div className={styles['logo-placeholder']}>{name}</div>
@@ -158,16 +147,13 @@ const MetaPreview = React.forwardRef(({ className, compact, name, logo, backgrou
                             }
                             {
                                 linksGroups.has(CONSTANTS.IMDB_LINK_CATEGORY) ?
-                                    <Button
+                                    <div
                                         className={styles['imdb-button-container']}
                                         title={linksGroups.get(CONSTANTS.IMDB_LINK_CATEGORY).label}
-                                        href={linksGroups.get(CONSTANTS.IMDB_LINK_CATEGORY).href}
-                                        target={'_blank'}
-                                        tabIndex={0}
                                     >
                                         <div className={styles['label']}>{linksGroups.get(CONSTANTS.IMDB_LINK_CATEGORY).label}</div>
                                         <Icon className={styles['icon']} name={'imdb'} />
-                                    </Button>
+                                    </div>
                                     :
                                     null
                             }

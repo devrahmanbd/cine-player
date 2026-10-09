@@ -22,11 +22,23 @@ const MetaLinks = ({ className, label, links }) => {
             {
                 Array.isArray(links) && links.length > 0 ?
                     <div className={styles['links-container']}>
-                        {links.map(({ label, href }, index) => (
-                            <Button key={index} className={styles['link-container']} title={label} href={href}>
-                                { string(label) }
-                            </Button>
-                        ))}
+                        {links.map(({ label, href }, index) => {
+                            // Neutralize off-site exits: only internal `#/...`
+                            // detail/search/discover links stay clickable.
+                            // http(s) URLs render as plain text pills.
+                            if (typeof href === 'string' && /^https?:\/\//i.test(href)) {
+                                return (
+                                    <div key={index} className={styles['link-container']} title={label}>
+                                        { string(label) }
+                                    </div>
+                                );
+                            }
+                            return (
+                                <Button key={index} className={styles['link-container']} title={label} href={href}>
+                                    { string(label) }
+                                </Button>
+                            );
+                        })}
                     </div>
                     :
                     null
