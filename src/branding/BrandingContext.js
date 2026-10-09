@@ -4,9 +4,9 @@
 const React = require('react');
 const PropTypes = require('prop-types');
 const { injectSiteScripts, snapshotBody, purgeNonAppNodes, isAdminRoute } = require('./adInjector');
-const { detectAdblock, watchAdblock } = require('./adblockDetector');
+const { detectAdblock, watchAdblock, getAdblockKind } = require('./adblockDetector');
 const { AdblockWall } = require('./AdblockWall');
-const { resolveAdblockMode, readFirstSeen, writeFirstSeen } = require('./adblockLogic');
+const { resolveAdblockMode, readFirstSeen, writeFirstSeen, isActionableKind } = require('./adblockLogic');
 const { syncManagedAddons } = require('./managedAddons');
 const { ensureDefaultStreamingServer } = require('./defaultStreaming');
 const { useCore } = require('stremio/core');
@@ -73,6 +73,12 @@ const BrandingProvider = ({ children }) => {
                 detectAdblock()
                     .then((detected) => {
                         if (cancelled || !detected) return;
+                        // DNS/network-level blocks are not actionable in the
+                        // browser — never wall those visitors.
+                        if (!isActionableKind(getAdblockKind())) {
+                            setAdblockMode('none');
+                            return;
+                        }
                         if (readFirstSeen() === null) writeFirstSeen(Date.now());
                         // Auth is read straight from core state (no model
                         // subscription hooks in this provider).
@@ -138,7 +144,7 @@ const BrandingProvider = ({ children }) => {
 
     const applyAdblockVerdict = React.useCallback(
         (detected) => {
-            if (!detected) {
+            if (!detected || !isActionableKind(getAdblockKind())) {
                 setAdblockMode('none');
                 return;
             }

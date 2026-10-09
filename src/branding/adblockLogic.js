@@ -28,4 +28,12 @@ function resolveAdblockMode({ detected, authed, firstSeen, now }) {
     return 'wall';
 }
 
-module.exports = { resolveAdblockMode, GRACE_MS, FIRST_SEEN_KEY, readFirstSeen, writeFirstSeen };
+// Only extension-type detections are actionable by the visitor (pause the
+// extension for this site). DNS/network-level blocks (AdGuard Home, ISP
+// filtering) cannot be fixed in-browser — walling those users just
+// punishes people with no blocker installed. Fail open for them.
+function isActionableKind(kind) {
+    return kind === 'extension' || kind === 'both';
+}
+
+module.exports = { resolveAdblockMode, GRACE_MS, FIRST_SEEN_KEY, readFirstSeen, writeFirstSeen, isActionableKind };
