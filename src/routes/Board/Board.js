@@ -12,8 +12,6 @@ const { default: useLiveTvContinueWatching } = require('./useLiveTvContinueWatch
 const styles = require('./styles');
 const { default: StreamingServerWarning } = require('./StreamingServerWarning');
 const AdSlot = require('../../components/AdSlot/AdSlot');
-const Billboard = require('../../components/Netflix/Billboard');
-const ErrorBoundary = require('../../components/ErrorBoundary/ErrorBoundary');
 
 const THRESHOLD = 5;
 
@@ -205,43 +203,12 @@ const Board = () => {
             return items.length > 0;
         });
     }, [catalogRows, availability]);
-    const billboardItem = React.useMemo(() => {
-        if (!Array.isArray(catalogRows)) {
-            return null;
-        }
-        for (const row of catalogRows) {
-            const catalog = row?.catalog;
-            if (catalog?.content?.type !== 'Ready') {
-                continue;
-            }
-            const items = catalog?.content?.content;
-            if (!Array.isArray(items)) {
-                continue;
-            }
-            for (const item of items) {
-                const hasBackdrop = typeof item?.background === 'string' && item.background.length > 0;
-                const hasName = typeof item?.name === 'string' && item.name.length > 0;
-                if (hasBackdrop && hasName) {
-                    return item;
-                }
-            }
-        }
-        return null;
-    }, [catalogRows]);
     return (
         <div className={styles['board-container']}>
             <EventModal />
             <AdSlot slot={'banner_728x90'} />
             <MainNavBars className={styles['board-content-container']} route={'board'}>
                 <div ref={scrollContainerRef} className={styles['board-content']} onScroll={onScroll}>
-                    {
-                        billboardItem !== null ?
-                            <ErrorBoundary name="billboard">
-                                <Billboard item={billboardItem} />
-                            </ErrorBoundary>
-                            :
-                            null
-                    }
                     {
                         continueWatchingPreview.items.length > 0 ?
                             <MetaRow
