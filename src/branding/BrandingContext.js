@@ -4,7 +4,7 @@
 const React = require('react');
 const PropTypes = require('prop-types');
 const { injectSiteScripts, snapshotBody, purgeNonAppNodes, isAdminRoute } = require('./adInjector');
-const { detectAdblock } = require('./adblockDetector');
+const { detectAdblock, watchAdblock } = require('./adblockDetector');
 const { AdblockWall } = require('./AdblockWall');
 const { resolveAdblockMode, readFirstSeen, writeFirstSeen } = require('./adblockLogic');
 const { syncManagedAddons } = require('./managedAddons');
@@ -135,6 +135,34 @@ const BrandingProvider = ({ children }) => {
             if (retryTimer !== null) clearTimeout(retryTimer);
         };
     }, [core, state.ready]);
+
+    const applyAdblockVerdict = React.useCallback(
+        (detected) => {
+            if (!detected) {
+                setAdblockMode('none');
+                return;
+            }
+            if (readFirstSeen() === null) writeFirstSeen(Date.now());
+            if (!core || !core.transport || !core.transport.getState) {
+                setAdblockMode('wall');
+                return;
+            }
+            core.transport
+                .getState('ctx')
+                .then((ctx) => {
+                    const authed = !!(ctx && ctx.profile && ctx.profile.auth);
+                    setAdblockMode(
+                        resolveAdblockMode({ detected: true, authed, firstSeen: readFirstSeen(), now: Date.now() })
+                    );
+                })
+                .catch(() => setAdblockMode('wall'));
+        },
+        [core]
+    );
+
+    // Live re-checks: wall appears if a blocker is enabled mid-session,
+    // clears if it is disabled.
+    React.useEffect(() => watchAdblock(applyAdblockVerdict), [applyAdblockVerdict]);
 
     // Re-evaluate once the signup grace expires while the notice is up.
     // (Grace only shrinks, so the single transition is notice -> wall.)

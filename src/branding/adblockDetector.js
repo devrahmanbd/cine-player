@@ -1,29 +1,53 @@
 // Copyright (C) 2026 stremio-linux fork. GPL-2.0.
-// Hardcoded adblock detector (uBlock Origin / AdGuard / AdBlock Plus,
-// EasyList-family lists). Multi-vector bait technique:
+// Hardcoded adblock detector (uBlock Origin incl. Lite, AdGuard extension,
+// AdGuard Home / DNS-level blockers, AdBlock Plus — EasyList-family lists).
 //
-//  1. CSS bait — off-screen divs carrying class names that EasyList and
-//     uBlock cosmetic filters hide (adsbox, pub_300x250, ad-banner, ...).
-//     After a tick, hidden/collapsed/removed nodes prove a cosmetic filter.
-//  2. Removal bait — some blockers strip bait nodes from the DOM entirely;
-//     a missing node is also a positive.
+// Signals:
+//  1. CSS bait — off-screen divs with class names AND ids taken from
+//     EasyList/AdGuard-Base GENERIC cosmetic rules (apply everywhere, no
+//     per-site exceptions needed). Hidden/collapsed/removed nodes prove a
+//     cosmetic filter. Re-checked at 150ms and 1500ms to catch delayed
+//     procedural filters.
+//  2. Network probes — triple-redundant (script onerror + image onerror +
+//     fetch), all against ad domains present in BOTH extension lists and
+//     DNS filters (googlesyndication, doubleclick, amazon-adsystem).
+//     DNS-level blockers (AdGuard Home/Pi-hole) cause NO dom changes, so
+//     this is the only vector that sees them.
+//  3. Control probe — same-origin pixel. If it fails too, the verdict is
+//     'offline', never 'blocked' (no false positives on dead networks).
 //
-// Deliberately NOT used: script/fetch probes to ad-network URLs (noisy,
-// rots as filter lists update, and EasyList's anti-adblock list specifically
-// targets detector-looking requests). No bait id/class below may contain
-// detector-ish words ("detect", "adblock") — those get hidden by
-// anti-anti-adblock rules and would false-positive.
+// Classification: { kind: 'clean' | 'extension' | 'dns' | 'both' | 'offline' }
+//   bait hidden + net ok      -> extension (cosmetic-only)
+//   bait visible + net fails  -> dns (network-level, DOM untouched)
+//   both fire                 -> both
+// Never branch on error STRINGS (all failures surface as opaque TypeError);
+// branch on the bait-vs-network matrix + a control probe instead.
 //
-// Result is cached per page load: `detectAdblock()` resolves boolean,
-// sets `document.documentElement.dataset.adblock = '1' | '0'` for CSS hooks
-// and stores `window.__LX_ADBLOCK__`. No UI wall here — callers decide.
-const BAITS = [
-    { cls: 'adsbox', style: 'width:1px;height:1px;position:absolute;left:-9999px;top:-9999px;' },
-    { cls: 'pub_300x250 pub_300x250m pub_728x90', style: 'width:1px;height:1px;position:absolute;left:-9999px;top:-9999px;' },
-    { cls: 'text-ad textAd ad-banner ad-container', style: 'width:2px;height:2px;position:absolute;left:-9999px;top:-9999px;' },
+// Neutral naming throughout (no "adblock"/"detect" in ids, classes, or
+// file-level markers visible to cosmetic filters) — anti-adblock lists
+// specifically hunt detector-looking selectors.
+const BAIT_CLASSES = [
+    'adsbox',
+    'pub_300x250 pub_300x250m pub_728x90',
+    'text-ad textAd text_ads advertisement',
+    'ad-banner ad-container ad-slot sponsored',
+    'addbanner banner-ads banner_ads afs_ads',
+];
+
+const BAIT_IDS = ['adsbox', 'pub_300x250', 'ad-banner', 'advert-banner-container', 'BannerBox'];
+
+const BAIT_STYLE = 'position:absolute;left:-9999px;top:-9999px;';
+
+const NET_PROBES = [
+    'https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js',
+    'https://googleads.g.doubleclick.net/pagead/html5.js',
+    'https://s.amazon-adsystem.com/sfw/js/account.js',
 ];
 
 let cached = null;
+let cachedKind = null;
+let watchTimer = null;
+let watchHandler = null;
 
 function isBaitBlocked(node) {
     if (!node || !node.parentNode) return true;
@@ -31,59 +55,213 @@ function isBaitBlocked(node) {
     try {
         const style = window.getComputedStyle(node);
         if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') return true;
+        if (node.offsetHeight === 0 && node.clientHeight === 0) {
+            const rect = node.getBoundingClientRect();
+            if ((rect.width === 0 && rect.height === 0) || node.offsetParent === null) return true;
+        }
     } catch {
         return false;
     }
-    const rect = node.getBoundingClientRect();
-    if (rect.width === 0 && rect.height === 0 && node.offsetParent === null) return true;
     return false;
 }
 
-function detectAdblock({ timeoutMs = 400 } = {}) {
-    if (cached !== null) return Promise.resolve(cached);
+function plantBaits() {
+    const nodes = [];
+    const plant = (tag, attr, value, size) => {
+        const node = document.createElement(tag);
+        node.setAttribute(attr, value);
+        node.setAttribute('style', `${BAIT_STYLE}width:${size[0]}px;height:${size[1]}px;`);
+        node.setAttribute('aria-hidden', 'true');
+        document.body.appendChild(node);
+        nodes.push(node);
+    };
+    for (const cls of BAIT_CLASSES) plant('div', 'class', cls, [1, 1]);
+    for (const id of BAIT_IDS) {
+        const node = document.createElement('div');
+        node.setAttribute('id', id);
+        node.setAttribute('style', `${BAIT_STYLE}width:1px;height:1px;`);
+        node.setAttribute('aria-hidden', 'true');
+        document.body.appendChild(node);
+        nodes.push(node);
+    }
+    const unit = document.createElement('div');
+    unit.setAttribute('class', 'sponsored');
+    unit.setAttribute('style', `${BAIT_STYLE}width:300px;height:250px;`);
+    unit.setAttribute('aria-hidden', 'true');
+    document.body.appendChild(unit);
+    nodes.push(unit);
+    return nodes;
+}
+
+function clearBaits(nodes) {
+    for (const node of nodes) {
+        try {
+            if (node.parentNode) node.parentNode.removeChild(node);
+        } catch {
+            // Already removed (itself a positive, already counted).
+        }
+    }
+}
+
+function runCssBaits() {
     return new Promise((resolve) => {
         let nodes = [];
         try {
-            nodes = BAITS.map((bait) => {
-                const node = document.createElement('div');
-                node.setAttribute('class', bait.cls);
-                node.setAttribute('style', bait.style);
-                node.setAttribute('aria-hidden', 'true');
-                document.body.appendChild(node);
-                return node;
-            });
+            nodes = plantBaits();
         } catch {
             resolve(false);
             return;
         }
-        setTimeout(() => {
+        const check = (done) => {
             let detected = false;
             try {
                 detected = nodes.some((node) => isBaitBlocked(node));
             } catch {
                 detected = false;
             }
-            for (const node of nodes) {
-                try {
-                    if (node.parentNode) node.parentNode.removeChild(node);
-                } catch {
-                    // Already removed (itself a positive, already counted).
-                }
+            if (detected || done) {
+                clearBaits(nodes);
+                resolve(detected);
+                return;
             }
-            cached = detected;
-            try {
-                document.documentElement.dataset.adblock = detected ? '1' : '0';
-                window.__LX_ADBLOCK__ = detected;
-            } catch {
-                // Non-fatal.
-            }
-            resolve(detected);
-        }, timeoutMs);
+            setTimeout(() => check(true), 1350);
+        };
+        setTimeout(() => check(false), 150);
     });
+}
+
+function probeScript(url, timeoutMs) {
+    return new Promise((resolve) => {
+        let settled = false;
+        const done = (blocked) => {
+            if (settled) return;
+            settled = true;
+            try {
+                if (script.parentNode) script.parentNode.removeChild(script);
+            } catch {
+                // Ignore cleanup failures.
+            }
+            resolve(blocked);
+        };
+        const script = document.createElement('script');
+        script.onload = () => done(false);
+        script.onerror = () => done(true);
+        setTimeout(() => done(true), timeoutMs);
+        script.src = url;
+        document.head.appendChild(script);
+    });
+}
+
+function probeImage(url, timeoutMs) {
+    return new Promise((resolve) => {
+        let settled = false;
+        const done = (blocked) => {
+            if (settled) return;
+            settled = true;
+            try {
+                if (img.parentNode) img.parentNode.removeChild(img);
+            } catch {
+                // Ignore cleanup failures.
+            }
+            resolve(blocked);
+        };
+        const img = new Image();
+        img.onload = () => done(false);
+        img.onerror = () => done(true);
+        setTimeout(() => done(true), timeoutMs);
+        img.src = url;
+    });
+}
+
+function probeFetch(url, timeoutMs) {
+    return fetch(url, { method: 'GET', mode: 'no-cors', cache: 'no-store', signal: AbortSignal.timeout(timeoutMs) })
+        .then(() => false)
+        .catch(() => true);
+}
+
+function runNetworkProbes(timeoutMs) {
+    const jobs = [];
+    for (const url of NET_PROBES) {
+        jobs.push(probeScript(url, timeoutMs));
+        jobs.push(probeImage(url, timeoutMs));
+        jobs.push(probeFetch(url, timeoutMs));
+    }
+    return Promise.all(jobs).then((results) => results.some(Boolean));
+}
+
+function runControlProbe(timeoutMs) {
+    return fetch('/brand/logo.svg', {
+        method: 'HEAD',
+        cache: 'no-store',
+        signal: AbortSignal.timeout(timeoutMs),
+    })
+        .then((response) => response.ok || response.status === 404)
+        .catch(() => false);
+}
+
+// Pure classifier (unit-tested): bait/net/control booleans -> kind.
+function classifyAdblock({ bait, net, control }) {
+    if (!control) return 'offline';
+    if (bait && net) return 'both';
+    if (bait) return 'extension';
+    if (net) return 'dns';
+    return 'clean';
+}
+
+function publish(kind) {
+    cached = kind !== 'clean' && kind !== 'offline';
+    cachedKind = kind;
+    try {
+        document.documentElement.dataset.lxGate = kind;
+        window.__LX_ADBLOCK__ = cached;
+        window.__LX_ADBLOCK_KIND__ = kind;
+    } catch {
+        // Non-fatal.
+    }
+    return cached;
+}
+
+function detectAdblock({ cssTimeoutMs = 1600, netTimeoutMs = 3500 } = {}) {
+    if (cached !== null) return Promise.resolve(cached);
+    return Promise.all([runCssBaits(cssTimeoutMs), runNetworkProbes(netTimeoutMs), runControlProbe(netTimeoutMs)]).then(
+        ([bait, net, control]) => publish(classifyAdblock({ bait, net, control }))
+    );
 }
 
 function getAdblockStatus() {
     return cached;
 }
 
-module.exports = { detectAdblock, getAdblockStatus };
+function getAdblockKind() {
+    return cachedKind;
+}
+
+function watchAdblock(callback, { intervalMs = 60000 } = {}) {
+    if (typeof callback !== 'function') return () => undefined;
+    stopWatch();
+    const check = () => {
+        cached = null;
+        cachedKind = null;
+        detectAdblock()
+            .then((detected) => callback(detected))
+            .catch(() => undefined);
+    };
+    const onHashChange = () => check();
+    window.addEventListener('hashchange', onHashChange);
+    watchTimer = setInterval(check, intervalMs);
+    watchHandler = onHashChange;
+    return () => stopWatch();
+}
+
+function stopWatch() {
+    if (watchTimer !== null) {
+        clearInterval(watchTimer);
+        watchTimer = null;
+    }
+    if (watchHandler !== null) {
+        window.removeEventListener('hashchange', watchHandler);
+        watchHandler = null;
+    }
+}
+
+module.exports = { detectAdblock, getAdblockStatus, getAdblockKind, watchAdblock, classifyAdblock };
