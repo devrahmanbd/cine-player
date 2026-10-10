@@ -40,8 +40,8 @@ const BAIT_STYLE = 'position:absolute;left:-9999px;top:-9999px;';
 
 const NET_PROBES = [
     'https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js',
-    'https://googleads.g.doubleclick.net/pagead/html5.js',
-    'https://s.amazon-adsystem.com/sfw/js/account.js',
+    'https://googleads.g.doubleclick.net/pagead/js/adsbygoogle.js',
+    'https://c.amazon-adsystem.com/aax2/apstag.js',
 ];
 
 let cached = null;
@@ -181,21 +181,47 @@ function probeFetch(url, timeoutMs) {
 
 function runNetworkProbes(timeoutMs) {
     const jobs = [];
+    // Probe scripts can throw at load (hostile stubs that ReferenceError on
+    // execution). Swallow ONLY errors thrown by our own probe URLs while the
+    // probe window is open; everything else passes through untouched.
+    const suppress = (event) => {
+        try {
+            const file = event && event.filename ? String(event.filename) : '';
+            if (file !== '' && NET_PROBES.some((url) => file === url || file.startsWith(url))) {
+                event.preventDefault();
+                return true;
+            }
+        } catch {
+            // Never break error reporting.
+        }
+        return false;
+    };
+    window.addEventListener('error', suppress, true);
+    const release = () => {
+        try {
+            window.removeEventListener('error', suppress, true);
+        } catch {
+            // Already gone.
+        }
+    };
     for (const url of NET_PROBES) {
         jobs.push(probeScript(url, timeoutMs));
         jobs.push(probeImage(url, timeoutMs));
         jobs.push(probeFetch(url, timeoutMs));
     }
-    return Promise.all(jobs).then((results) => results.some(Boolean));
+    return Promise.all(jobs).then((results) => {
+        release();
+        return results.some(Boolean);
+    });
 }
 
 function runControlProbe(timeoutMs) {
-    return fetch('/brand/logo.svg', {
-        method: 'HEAD',
+    return fetch('/api/health', {
+        method: 'GET',
         cache: 'no-store',
         signal: AbortSignal.timeout(timeoutMs),
     })
-        .then((response) => response.ok || response.status === 404)
+        .then((response) => response.ok)
         .catch(() => false);
 }
 
