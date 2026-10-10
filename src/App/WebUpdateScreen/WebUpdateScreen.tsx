@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { useMatch } from 'react-router';
 import { useBranding } from 'stremio/branding/BrandingContext';
 import { isAdminRoute } from 'stremio/branding/adInjector';
+import Image from 'stremio/components/Image';
 import useServiceWorkerUpdater from './useServiceWorkerUpdater';
 import styles from './WebUpdateScreen.less';
 
@@ -32,9 +33,10 @@ const WebUpdateScreen = () => {
                 aria-live={'polite'}
                 aria-busy={true}
             >
-                <img
+                <Image
                     className={styles['logo']}
-                    src={brand.logo_url && brand.logo_url.length > 0 ? brand.logo_url : STOCK_LOGO}
+                    src={typeof brand.logo_url === 'string' && brand.logo_url.length > 0 ? brand.logo_url : STOCK_LOGO}
+                    fallbackSrc={STOCK_LOGO}
                     alt={''}
                 />
                 <div className={styles['title']}>

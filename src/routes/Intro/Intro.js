@@ -12,6 +12,7 @@ const { default: useRouteFocused } = require('stremio/common/useRouteFocused');
 const { Button, Image, Checkbox } = require('stremio/components');
 const CredentialsTextInput = require('./CredentialsTextInput');
 const PasswordResetModal = require('./PasswordResetModal');
+const { useBranding } = require('stremio/branding/BrandingContext');
 const useFacebookLogin = require('./useFacebookLogin');
 const { default: useAppleLogin } = require('./useAppleLogin');
 
@@ -20,11 +21,15 @@ const styles = require('./styles');
 const SIGNUP_FORM = 'signup';
 const LOGIN_FORM = 'login';
 
+const STOCK_LOGO = '/brand/logo.svg';
+
 const Intro = () => {
     const [queryParams, setQueryParams] = useSearchParams();
     const navigate = useNavigate();
     const core = useCore();
     const { t } = useTranslation();
+    const { brand } = useBranding();
+    const logoSrc = typeof brand.logo_url === 'string' && brand.logo_url.length > 0 ? brand.logo_url : STOCK_LOGO;
     const routeFocused = useRouteFocused();
     const [startFacebookLogin, stopFacebookLogin] = useFacebookLogin();
     const [startAppleLogin, stopAppleLogin] = useAppleLogin();
@@ -293,7 +298,7 @@ const Intro = () => {
             <div className={styles['background-container']} />
             <div className={styles['heading-container']}>
                 <div className={styles['logo-container']}>
-                    <Image className={styles['logo']} src={require('/assets/images/logo.png')} alt={' '} />
+                    <Image className={styles['logo']} src={logoSrc} fallbackSrc={STOCK_LOGO} alt={' '} />
                 </div>
                 <div className={styles['title-container']}>
                     {t('WEBSITE_SLOGAN_NEW_NEW')}
@@ -337,16 +342,12 @@ const Intro = () => {
                                 <Checkbox
                                     ref={termsRef}
                                     label={t('READ_AND_AGREE')}
-                                    link={t('TOS')}
-                                    href={'https://www.stremio.com/tos'}
                                     checked={state.termsAccepted}
                                     onChange={toggleTermsAccepted}
                                 />
                                 <Checkbox
                                     ref={privacyPolicyRef}
                                     label={t('READ_AND_AGREE')}
-                                    link={t('PRIVACY_POLICY')}
-                                    href={'https://www.stremio.com/privacy'}
                                     checked={state.privacyPolicyAccepted}
                                     onChange={togglePrivacyPolicyAccepted}
                                 />

@@ -117,13 +117,6 @@ const General = forwardRef<HTMLDivElement, Props>(({ profile }: Props, ref) => {
                     />
             }
             {
-                profile?.auth?.user &&
-                    <Link
-                        label={t('SETTINGS_ACC_DELETE')}
-                        href={'https://stremio.zendesk.com/hc/en-us/articles/360021428911-How-to-delete-my-account'}
-                    />
-            }
-            {
                 profile?.auth?.user?.email &&
                     <Link
                         label={t('SETTINGS_CHANGE_PASSWORD')}
