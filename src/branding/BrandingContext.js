@@ -37,12 +37,27 @@ async function fetchJson(url, timeoutMs) {
     }
 }
 
+const { applySiteNameToStore } = require('./brandStrings');
+
 function applyBrand(brand) {
     document.title = `${brand.site_name} - ${brand.tagline}`;
     let icon = document.querySelector('link[rel="icon"]');
     if (icon) icon.setAttribute('href', brand.favicon_url);
     document.documentElement.style.setProperty('--brand-accent', brand.accent);
     document.documentElement.dataset.brandTheme = brand.theme;
+    // Runtime copy rebrand: every upstream "Stremio" label follows the
+    // admin site_name. Fail-open — branding must never break the app.
+    try {
+        const i18n = require('i18next');
+        if (i18n && i18n.store && i18n.store.data) {
+            const rewritten = applySiteNameToStore(i18n.store.data, brand.site_name);
+            if (rewritten > 0 && typeof i18n.changeLanguage === 'function') {
+                i18n.changeLanguage(i18n.language).catch(() => undefined);
+            }
+        }
+    } catch {
+        // Non-fatal: labels keep upstream wording.
+    }
 }
 
 const BrandingProvider = ({ children }) => {
