@@ -73,6 +73,7 @@ const Remove = require('./icons/remove');
 const RemoveFromLibrary = require('./icons/remove-from-library');
 const Reset = require('./icons/reset');
 const Search = require('./icons/search');
+const SearchOutline = require('./icons/search-outline');
 const Series = require('./icons/series');
 const Settings = require('./icons/settings');
 const SettingsOutline = require('./icons/settings-outline');
@@ -167,6 +168,7 @@ const ICONS = {
     'remove-from-library': RemoveFromLibrary,
     'reset': Reset,
     'search': Search,
+    'search-outline': SearchOutline,
     'series': Series,
     'settings': Settings,
     'settings-outline': SettingsOutline,

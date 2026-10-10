@@ -5,6 +5,8 @@
 
 :import('~stremio/components/Popup/styles.less') {
     popup-menu-container: menu-container;
+    popup-menu-top-left: menu-direction-top-left;
+    popup-menu-top-right: menu-direction-top-right;
 }
 
 @mobile-height: calc(var(--small-viewport-height) - var(--horizontal-nav-bar-size) - var(--vertical-nav-bar-size));
@@ -13,6 +15,10 @@
 .nav-menu-popup-label {
     .popup-menu-container {
         margin-top: 1rem;
+    }
+    .popup-menu-top-left, .popup-menu-top-right {
+        margin-top: 0;
+        margin-bottom: 1rem;
     }
 }
 .nav-menu-container {

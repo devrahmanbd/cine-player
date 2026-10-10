@@ -11,25 +11,71 @@
     width: calc(100% - var(--safe-area-inset-left) - var(--safe-area-inset-right));
     height: 100%;
 
-    .horizontal-nav-bar {
+    .side-bar {
         position: absolute;
         top: 0;
-        right: 0;
-        left: 0;
-        z-index: 1;
-    }
-
-    .vertical-nav-bar {
-        position: absolute;
-        top: var(--horizontal-nav-bar-size);
         bottom: 0;
         left: 0;
         z-index: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.75rem;
+        width: var(--vertical-nav-bar-size);
+        padding: 1rem 0;
+
+        .logo-container {
+            flex: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: calc(var(--vertical-nav-bar-size) - 1.2rem);
+            height: calc(var(--vertical-nav-bar-size) - 1.2rem);
+            min-height: 3.5rem;
+
+            .logo {
+                width: 2.2rem;
+                height: 2.2rem;
+                object-fit: contain;
+            }
+        }
+
+        .vertical-nav-bar {
+            flex: 1 1 auto;
+            width: 100%;
+            min-height: 0;
+            padding: 0;
+        }
+
+        .profile-button {
+            flex: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: calc(var(--vertical-nav-bar-size) - 1.2rem);
+            height: calc(var(--vertical-nav-bar-size) - 1.2rem);
+            min-height: 3.5rem;
+            border-radius: 0.75rem;
+            background-color: transparent;
+
+            @media (pointer: fine) {
+                &:hover {
+                    background-color: var(--overlay-color);
+                }
+            }
+
+            .profile-icon {
+                width: 1.25rem;
+                height: 1.25rem;
+                color: var(--primary-foreground-color);
+                opacity: 0.35;
+            }
+        }
     }
 
     .nav-content-container {
         position: absolute;
-        top: calc(var(--horizontal-nav-bar-size) + var(--safe-area-inset-top));
+        top: var(--safe-area-inset-top);
         right: 0;
         bottom: 0;
         left: var(--vertical-nav-bar-size);
@@ -40,13 +86,33 @@
 
 @media only screen and (max-width: @minimum) {
     .main-nav-bars-container {
-        .nav-content-container {
+        .side-bar {
+            top: initial;
+            right: 0;
+            bottom: 0;
             left: 0;
-            bottom: var(--vertical-nav-bar-size);
+            flex-direction: row;
+            align-items: center;
+            gap: 0;
+            width: 100%;
+            height: var(--vertical-nav-bar-size);
+            padding: 0 1rem;
+
+            .logo-container {
+                display: none;
+            }
+
+            .vertical-nav-bar {
+                flex: 1 1 auto;
+                width: auto;
+                min-width: 0;
+            }
         }
 
-        .vertical-nav-bar {
-            top: initial;
+        .nav-content-container {
+            top: var(--safe-area-inset-top);
+            left: 0;
+            bottom: var(--vertical-nav-bar-size);
         }
     }
 }
