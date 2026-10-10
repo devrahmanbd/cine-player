@@ -267,13 +267,16 @@ const Board = () => {
                             :
                             null
                     }
-                    {filteredCatalogRows.map(({ catalog, index }) => {
+                    {filteredCatalogRows.map(({ catalog, index }, rowPos) => {
+                        const catalogName = typeof catalog?.name === 'string' ? catalog.name : '';
+                        const isTop10Row = /top 10/i.test(catalogName);
+                        const isFeaturedRow = rowPos === 0;
                         switch (catalog.content?.type) {
                             case 'Ready': {
                                 return (
                                     <MetaRow
                                         key={index}
-                                        className={classnames(styles['board-row'], styles[`board-row-${catalog.content.content[0]?.posterShape}`], 'animation-fade-in')}
+                                        className={classnames(styles['board-row'], styles[`board-row-${catalog.content.content[0]?.posterShape}`], 'animation-fade-in', { [styles['board-row-featured']]: isFeaturedRow, [styles['board-row-top10']]: isTop10Row, 'lx-featured': isFeaturedRow, 'lx-top10': isTop10Row })}
                                         catalog={catalog}
                                         itemComponent={MetaItem}
                                     />
@@ -284,7 +287,7 @@ const Board = () => {
                                     return (
                                         <MetaRow
                                             key={index}
-                                            className={classnames(styles['board-row'], 'animation-fade-in')}
+                                            className={classnames(styles['board-row'], 'animation-fade-in', { [styles['board-row-featured']]: isFeaturedRow, [styles['board-row-top10']]: isTop10Row, 'lx-featured': isFeaturedRow, 'lx-top10': isTop10Row })}
                                             catalog={catalog}
                                             message={catalog.content.content}
                                         />
@@ -296,7 +299,7 @@ const Board = () => {
                                 return (
                                     <MetaRow.Placeholder
                                         key={index}
-                                        className={classnames(styles['board-row'], styles['board-row-poster'], 'animation-fade-in')}
+                                        className={classnames(styles['board-row'], styles['board-row-poster'], 'animation-fade-in', { [styles['board-row-featured']]: isFeaturedRow, [styles['board-row-top10']]: isTop10Row, 'lx-featured': isFeaturedRow, 'lx-top10': isTop10Row })}
                                         catalog={catalog}
                                         title={t.catalogTitle(catalog)}
                                     />

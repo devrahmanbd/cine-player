@@ -1,4 +1,5 @@
 // Copyright (C) 2017-2023 Smart code 203358507
+/* Hallmark · layout-pattern pass · studied-DNA (source: url https://popcornmovies.ac/) */
 
 @import (reference) '~@stremio/stremio-colors/less/stremio-colors.less';
 @import (reference) '~stremio/common/screen-sizes.less';
@@ -106,6 +107,33 @@
             }
         }
     }
+
+    // Hallmark · layout-pattern: Top 10 numbered rail (popcorn DNA, additive only).
+    // Large index numerals via pure CSS counter on .meta-item; no JSX data change.
+    &.top10 {
+        .meta-items-container {
+            counter-reset: lx-top10;
+        }
+
+        .meta-item {
+            position: relative;
+            counter-increment: lx-top10;
+            padding-left: 3.5rem;
+
+            &::before {
+                content: counter(lx-top10);
+                position: absolute;
+                left: 0;
+                bottom: 4rem;
+                width: 3rem;
+                font-size: 3.5rem;
+                font-weight: 800;
+                line-height: 1;
+                color: transparent;
+                -webkit-text-stroke: 2px rgba(255, 255, 255, 0.85);
+            }
+        }
+    }
 }
 
 @media only screen and (max-width: @minimum) {
@@ -149,6 +177,104 @@
                 &.poster-shape-landscape {
                     flex: 0 0 46%;
                 }
+            }
+        }
+    }
+}
+
+/* Hallmark · color-design pass · studied-DNA (source: url https://popcornmovies.ac/) */
+/* Hallmark · pre-emit critique: P5 H4 E5 S4 R5 V5 */
+:global(.lx-section-head) {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    font-family: var(--font-display);
+    font-style: normal;
+    color: var(--color-ink);
+}
+:global(.lx-section-head-rule) {
+    flex: 1;
+    min-width: 2rem;
+    height: 1px;
+    background-color: var(--color-line);
+}
+:global(.lx-eyebrow) {
+    font-family: var(--font-body);
+    font-style: normal;
+    color: var(--color-dim);
+}
+.meta-row-container {
+    max-width: 100%;
+    min-width: 0;
+    .header-container {
+        min-width: 0;
+        .title-container {
+            font-family: var(--font-display);
+            font-style: normal;
+            color: var(--color-ink);
+            min-width: 0;
+            .title-label {
+                font-family: var(--font-display);
+                font-style: normal;
+                color: var(--color-ink);
+                overflow-wrap: anywhere;
+                min-width: 0;
+            }
+            .title-rule {
+                background-color: var(--color-line);
+            }
+        }
+        .see-all-container {
+            .label {
+                font-family: var(--font-body);
+                color: var(--color-dim);
+            }
+        }
+    }
+    .message-container {
+        font-family: var(--font-body);
+        color: var(--color-dim);
+    }
+    .meta-items-container {
+        min-width: 0;
+    }
+}
+@media only screen and (max-width: 768px) {
+    :global(.lx-section-head) {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+/* Hallmark · motion pass · studied-DNA (source: url https://popcornmovies.ac/) */
+// Cards: hover lift (translateY) + brightness. Explicit properties only
+// (no transition-all, no scale anti-pattern). Focus ring instant
+// brand-accent, never animated. Micro 200ms ease-out. Reduced: opacity only.
+.meta-row-container {
+    .meta-items-container {
+        .meta-item {
+            transition: transform 200ms ease-out, filter 200ms ease-out, opacity 200ms ease-out;
+
+            &:hover {
+                transform: translateY(-2px);
+                filter: brightness(1.08);
+            }
+
+            &:focus-visible, &:focus-within {
+                outline: 3px solid var(--brand-accent);
+                outline-offset: 2px;
+            }
+        }
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .meta-row-container {
+        .meta-items-container {
+            .meta-item {
+                transition: opacity 150ms ease-out;
+                transform: none;
+                animation: none;
             }
         }
     }

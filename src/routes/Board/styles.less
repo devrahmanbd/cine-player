@@ -1,4 +1,5 @@
 // Copyright (C) 2017-2024 Smart code 203358507
+/* Hallmark · layout-pattern pass · studied-DNA (source: url https://popcornmovies.ac/) */
 
 @import (reference) '~@stremio/stremio-colors/less/stremio-colors.less';
 @import (reference) '~stremio/common/screen-sizes.less';
@@ -31,6 +32,20 @@
             .board-row {
                 margin-top: 1rem;
                 margin-bottom: 2rem;
+            }
+
+            // Hallmark · layout-pattern: featured landscape rail (first catalog row after hero).
+            // Additive only; keeps board-row-* class contracts intact.
+            .board-row-featured {
+                margin-top: 0.5rem;
+                padding: 0.5rem;
+                border-radius: var(--lx-radius, 10px);
+                background: var(--overlay-color);
+            }
+
+            // Hallmark · layout-pattern: Top 10 row hook (numerals live in MetaRow).
+            .board-row-top10 {
+                border-radius: var(--lx-radius, 10px);
             }
         }
     }
@@ -235,6 +250,131 @@
     .board-container {
         .board-warning-container {
             left: calc(var(--safe-area-inset-left) + var(--vertical-nav-bar-size) + 0.5rem);
+        }
+    }
+}
+
+/* Hallmark · color-design pass · studied-DNA (source: url https://popcornmovies.ac/) */
+/* Hallmark · pre-emit critique: P5 H4 E5 S4 R5 V5 */
+:global(.lx-section-head) {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    font-family: var(--font-display);
+    font-style: normal;
+    color: var(--color-ink);
+}
+:global(.lx-board-row-title) {
+    font-family: var(--font-display);
+    font-style: normal;
+    color: var(--color-ink);
+    overflow-wrap: anywhere;
+    min-width: 0;
+}
+:global(.lx-board-row-rule) {
+    flex: 1;
+    min-width: 2rem;
+    height: 1px;
+    background-color: var(--color-line);
+}
+.board-container {
+    max-width: 100%;
+    min-width: 0;
+    overflow-x: clip;
+    .board-content-container {
+        min-width: 0;
+        .board-content {
+            min-width: 0;
+            .board-row {
+                min-width: 0;
+                max-width: 100%;
+            }
+        }
+    }
+}
+@media only screen and (max-width: 768px) {
+    :global(.lx-section-head) {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+    }
+    .board-container {
+        .board-content-container {
+            .board-content {
+                padding: 0 0.5rem;
+            }
+        }
+    }
+}
+
+/* Hallmark · motion pass · studied-DNA (source: url https://popcornmovies.ac/) */
+// Rails: staggered fade-up reveal. Wired to existing `animation-fade-in` class
+// (no JS; useVisibleCatalogs lazy-mounts rows). transform+opacity only,
+// entrance 500ms ease-out, stagger ≤300ms. Reduced: 150ms opacity-only.
+@keyframes lx-rail-in {
+    from {
+        opacity: 0;
+        transform: translateY(12px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes lx-rail-in-reduced {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+.board-container {
+    .board-content-container {
+        .board-content {
+            .board-row.animation-fade-in {
+                animation-name: lx-rail-in;
+                animation-duration: 500ms;
+                animation-timing-function: ease-out;
+                animation-fill-mode: both;
+            }
+
+            .board-row:nth-child(2).animation-fade-in {
+                animation-delay: 60ms;
+            }
+
+            .board-row:nth-child(3).animation-fade-in {
+                animation-delay: 120ms;
+            }
+
+            .board-row:nth-child(4).animation-fade-in {
+                animation-delay: 180ms;
+            }
+
+            .board-row:nth-child(5).animation-fade-in {
+                animation-delay: 240ms;
+            }
+
+            .board-row:nth-child(6).animation-fade-in {
+                animation-delay: 300ms;
+            }
+        }
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .board-container {
+        .board-content-container {
+            .board-content {
+                .board-row.animation-fade-in {
+                    animation-name: lx-rail-in-reduced;
+                    animation-duration: 150ms;
+                    animation-timing-function: ease-out;
+                    animation-delay: 0ms;
+                    animation-fill-mode: both;
+                }
+            }
         }
     }
 }

@@ -1,4 +1,5 @@
 // Copyright (C) 2026 stremio-linux fork. GPL-2.0.
+/* Hallmark · layout-pattern pass · studied-DNA (source: url https://popcornmovies.ac/) */
 // Linux-desktop chrome. Selectors use :global() so CSS-modules hashing
 // (css-loader `modules` mode) leaves the literal class names intact —
 // plain classes here would be renamed (e.g. .lx-shell-SPBs8) and match nothing.
@@ -460,7 +461,7 @@
 :global(.lx-pm-seg) {
     position: relative;
     overflow: hidden;
-    transition: width 250ms ease-out, opacity 180ms ease-out, transform 180ms ease-out;
+    transition: opacity 180ms ease-out, transform 180ms ease-out;
 }
 :global(.lx-pm-seg::after) {
     content: '';
@@ -485,10 +486,20 @@
     :global(.lx-pm-info),
     :global(.lx-pm-arrow),
     :global(.lx-pm-seg),
-    :global(.lx-pm-seg::after) {
+    :global(.lx-pm-seg::after),
+    :global(.lx-pm-hero),
+    :global(.lx-pm-segments) {
         animation: none;
         transition: none;
     }
+}
+/* Hallmark · motion pass · studied-DNA (source: url https://popcornmovies.ac/) */
+// Popcorn marquee motion pass: backdrop crossfade opacity-only (no layout props),
+// content-up re-triggers via key={safeIndex} in Billboard.js (CSS-only, no JS).
+// Hero autoplay: 6 slides / 8000ms, pause-on-hover + ArrowLeft/Right via section
+// handlers (trivial timer only). Focus rings stay instant brand-accent, never animated.
+:global(.lx-pm-backdrop) {
+    will-change: opacity;
 }
 @media (max-width: 720px) {
     :global(.lx-pm-hero) {
@@ -510,4 +521,125 @@
         width: 36px;
         height: 52px;
     }
+}
+
+/* Hallmark · color-design pass · studied-DNA (source: url https://popcornmovies.ac/) */
+/* Hallmark · pre-emit critique: P5 H4 E5 S4 R5 V5 */
+:global(:root) {
+    --color-paper: #080b14;
+    --color-paper-2: #0e1322;
+    --color-ink: #e6e6e6;
+    --color-dim: #9a9ab0;
+    --color-line: rgba(255, 255, 255, 0.12);
+    --color-meta: #d2d2d2;
+}
+:global(html),
+:global(body) {
+    overflow-x: clip;
+}
+:global(body) {
+    background: var(--color-paper);
+    color: var(--color-ink);
+    font-family: var(--font-body);
+}
+:global(h1),
+:global(h2),
+:global(h3),
+:global(.lx-pm-title),
+:global(.lx-nf-title) {
+    font-family: var(--font-display);
+    font-style: normal;
+    color: var(--color-ink);
+    overflow-wrap: anywhere;
+    min-width: 0;
+}
+:global(.lx-pm-meta),
+:global(.lx-nf-meta),
+:global(.lx-pm-desc),
+:global(.lx-nf-desc) {
+    color: var(--color-meta);
+    font-family: var(--font-body);
+}
+:global(.lx-pm-eyebrow),
+:global(.lx-eyebrow),
+:global(.lx-muted) {
+    font-family: var(--font-body);
+    font-style: normal;
+    color: var(--color-dim);
+}
+:global(a:focus-visible),
+:global(button:focus-visible) {
+    outline: 3px solid var(--brand-accent);
+    outline-offset: 2px;
+}
+:global(.lx-image-grid) {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(0, 1fr));
+}
+@media (max-width: 768px) {
+    :global(.lx-section-head) {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+/* Hallmark · layout-pattern pass · studied-DNA (source: url https://popcornmovies.ac/) */
+// Popcorn layout+pattern DNA (additive only): featured landscape rail, Top 10
+// numerals (CSS counter), vertical eyebrow+hairline heads, genre even gaps +
+// big radii. No route, Player, core, services, or addons logic changes.
+// Featured landscape rail: first catalog row after hero (Board adds lx-featured).
+:global(.lx-featured) {
+    border-radius: var(--lx-radius);
+}
+:global(.lx-featured) [class*='meta-items-container'] {
+    gap: 1rem;
+}
+:global(.lx-featured) [class*='poster-shape-landscape'] {
+    border-radius: var(--lx-radius);
+}
+:global(.lx-card-meta) {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #d2d2d2;
+}
+// Top 10 numbered pattern: large index numerals via CSS counter on .meta-item.
+// MetaRow adds lx-top10 / lx-top10-item; local .top10 counter lives in MetaRow.
+:global(.lx-top10) [class*='meta-items-container'] {
+    counter-reset: lx-top10;
+}
+:global(.lx-top10-item) {
+    counter-increment: lx-top10;
+    position: relative;
+    padding-left: 3.5rem;
+}
+:global(.lx-top10-item)::before {
+    content: counter(lx-top10);
+    position: absolute;
+    left: 0;
+    bottom: 4rem;
+    width: 3rem;
+    font-size: 3.5rem;
+    font-weight: 800;
+    line-height: 1;
+    color: transparent;
+    -webkit-text-stroke: 2px rgba(255, 255, 255, 0.85);
+}
+// Vertical heads: eyebrow + hairline consistent with MetaRow title-rule.
+:global(.lx-eyebrow) {
+    font-size: 0.85rem;
+    font-weight: 700;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+}
+:global(.lx-hairline) {
+    height: 1px;
+    background-color: rgba(255, 255, 255, 0.12);
+}
+// Genre browse: even gaps + big radii (lx-radius language).
+:global(.lx-genre-grid) {
+    gap: 0.75rem;
+    border-radius: var(--lx-radius);
+}
+:global(.lx-chip) {
+    border-radius: max(var(--lx-radius), 999px);
 }

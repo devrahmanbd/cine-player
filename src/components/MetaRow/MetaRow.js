@@ -26,8 +26,12 @@ const MetaRow = ({ className, title, catalog, message, itemComponent, notificati
         return catalog?.deepLinks?.discover ?? catalog?.deepLinks?.library;
     }, [catalog]);
 
+    const isTop10Row = React.useMemo(() => {
+        return typeof catalogTitle === 'string' && /top 10/i.test(catalogTitle);
+    }, [catalogTitle]);
+
     return (
-        <div className={classnames(className, styles['meta-row-container'])}>
+        <div className={classnames(className, styles['meta-row-container'], { [styles['top10']]: isTop10Row, 'lx-top10': isTop10Row })}>
             <div className={styles['header-container']}>
                 {
                     typeof catalogTitle === 'string' && catalogTitle.length > 0 ?
@@ -59,7 +63,7 @@ const MetaRow = ({ className, title, catalog, message, itemComponent, notificati
                                     return React.createElement(itemComponent, {
                                         ...item,
                                         key: index,
-                                        className: classnames(styles['meta-item'], styles['poster-shape-poster'], styles[`poster-shape-${item.posterShape}`]),
+                                        className: classnames(styles['meta-item'], styles['poster-shape-poster'], styles[`poster-shape-${item.posterShape}`], { 'lx-top10-item': isTop10Row }),
                                         notifications,
                                     });
                                 })

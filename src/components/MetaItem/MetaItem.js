@@ -74,8 +74,41 @@ const MetaItem = React.memo(({ className, type, name, poster, posterShape, poste
         <Icon className={styles['icon']} name={'more-vertical'} />
     ), []);
     const hasOptions = Array.isArray(options) && options.length > 0;
+    const metaLine = React.useMemo(() => {
+        const parts = [];
+        if (typeof type === 'string' && type.length > 0) {
+            parts.push(type.charAt(0).toUpperCase() + type.slice(1));
+        }
+        const releasedValue = props.released;
+        let year = null;
+        if (releasedValue instanceof Date && !isNaN(releasedValue.getTime())) {
+            year = String(releasedValue.getFullYear());
+        } else if (typeof releasedValue === 'string' && releasedValue.length >= 4) {
+            const yearMatch = releasedValue.match(/(\d{4})/);
+            if (yearMatch !== null) {
+                year = yearMatch[1];
+            }
+        }
+        if (year === null && typeof props.releaseInfo === 'string') {
+            const infoMatch = props.releaseInfo.match(/(\d{4})/);
+            if (infoMatch !== null) {
+                year = infoMatch[1];
+            }
+        }
+        if (year !== null) {
+            parts.push(year);
+        }
+        const ratingValue = props.rating ?? props.imdbRating ?? props.ratingValue;
+        if (typeof ratingValue === 'string' && ratingValue.length > 0) {
+            parts.push('★ ' + ratingValue);
+        } else if (typeof ratingValue === 'number' && !isNaN(ratingValue)) {
+            parts.push('★ ' + String(ratingValue));
+        }
+        return parts.length > 0 ? parts.join(' · ') : null;
+    }, [type, props.released, props.releaseInfo, props.rating, props.imdbRating, props.ratingValue]);
+    const isLandscapeCard = artwork.shape === 'landscape';
     return (
-        <div className={classnames(className, styles['meta-item-container'], styles['poster-shape-poster'], styles[`poster-shape-${artwork.shape}`], { 'active': menuOpen })}>
+        <div className={classnames(className, styles['meta-item-container'], styles['poster-shape-poster'], styles[`poster-shape-${artwork.shape}`], { 'active': menuOpen, 'lx-landscape-card': isLandscapeCard })}>
             <Button title={name} href={href} {...filterInvalidDOMProps(props)} className={styles['meta-item-link']} onClick={metaItemOnClick}>
                 <div className={classnames(styles['poster-container'], { 'poster-change-cursor': artwork.changeCursor })}>
                     {
@@ -153,6 +186,12 @@ const MetaItem = React.memo(({ className, type, name, poster, posterShape, poste
                             <div className={styles['title-label']}>
                                 {typeof name === 'string' && name.length > 0 ? name : ''}
                             </div>
+                            {
+                                metaLine !== null ?
+                                    <div className={classnames(styles['meta-line'], 'lx-card-meta')}>{metaLine}</div>
+                                    :
+                                    null
+                            }
                         </div>
                         :
                         null
@@ -195,6 +234,11 @@ MetaItem.propTypes = {
     className: PropTypes.string,
     type: PropTypes.string,
     name: PropTypes.string,
+    releaseInfo: PropTypes.string,
+    released: PropTypes.oneOfType([PropTypes.string, PropTypes.instanceOf(Date)]),
+    rating: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+    imdbRating: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+    ratingValue: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
     poster: PropTypes.oneOfType([
         PropTypes.string,
         PropTypes.shape({

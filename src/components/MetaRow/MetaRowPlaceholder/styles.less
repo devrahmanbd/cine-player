@@ -109,3 +109,48 @@
         }
     }
 }
+
+/* Hallmark · motion pass · studied-DNA (source: url https://popcornmovies.ac/) */
+// Placeholders: shimmer via opacity pulse only (no layout shift, no transform
+// on layout boxes). ease-in-out. Reduced: static, 150ms opacity-only.
+@keyframes lx-placeholder-pulse {
+    0% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.55;
+    }
+
+    100% {
+        opacity: 1;
+    }
+}
+
+.meta-row-placeholder-container {
+    .header-container {
+        .title-container:empty {
+            animation: lx-placeholder-pulse 1200ms ease-in-out infinite;
+        }
+    }
+
+    .meta-items-container {
+        .meta-item {
+            .poster-container, .title-bar-container .title-label {
+                animation: lx-placeholder-pulse 1200ms ease-in-out infinite;
+            }
+        }
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .meta-row-placeholder-container {
+        .header-container .title-container:empty,
+        .meta-items-container .meta-item .poster-container,
+        .meta-items-container .meta-item .title-bar-container .title-label {
+            animation: none;
+            opacity: 1;
+            transition: opacity 150ms ease-out;
+        }
+    }
+}

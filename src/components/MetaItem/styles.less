@@ -1,4 +1,5 @@
 // Copyright (C) 2017-2024 Smart code 203358507
+/* Hallmark · layout-pattern pass · studied-DNA (source: url https://popcornmovies.ac/) */
 
 @import (reference) '~@stremio/stremio-colors/less/stremio-colors.less';
 @import (reference) '~stremio/common/screen-sizes.less';
@@ -450,6 +451,208 @@
 
         .title-bar-container {
             margin-top: 0.5rem;
+        }
+    }
+}
+
+// Hallmark · layout-pattern: featured landscape rail (popcorn DNA, additive only).
+// Bottom-gradient title overlay + Series · year · ★ rating meta line.
+// Portrait cards keep the stacked title treatment below the poster.
+.meta-item-container {
+    .meta-line {
+        flex: none;
+        width: 100%;
+        font-size: 0.85rem;
+        font-weight: 500;
+        color: var(--primary-foreground-color);
+        opacity: 0.65;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    &.poster-shape-landscape {
+        .poster-container {
+            &::after {
+                content: '';
+                position: absolute;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                height: 55%;
+                background: linear-gradient(to top, rgba(0, 0, 0, 0.85) 0%, transparent 100%);
+                border-radius: inherit;
+                pointer-events: none;
+            }
+        }
+
+        .title-bar-container {
+            position: absolute;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            height: auto;
+            min-height: 3.5rem;
+            padding: 1.75rem 1rem 0.75rem;
+            flex-direction: column;
+            align-items: flex-start;
+            justify-content: flex-end;
+            background: linear-gradient(to top, rgba(0, 0, 0, 0.85) 0%, transparent 100%);
+            border-radius: 0 0 12px 12px;
+
+            .title-label {
+                width: 100%;
+                padding-left: 0.5rem;
+                padding-right: 0.5rem;
+                text-align: left;
+                color: #fff;
+            }
+
+            .meta-line {
+                padding: 0 0.5rem;
+                font-weight: 600;
+                color: #d2d2d2;
+                opacity: 1;
+            }
+        }
+    }
+}
+
+/* Hallmark · color-design pass · studied-DNA (source: url https://popcornmovies.ac/) */
+/* Hallmark · pre-emit critique: P5 H4 E5 S4 R5 V5 */
+:global(.lx-rating-badge) {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    display: flex;
+    align-items: center;
+    min-height: 1.5rem;
+    padding: 0 0.5rem;
+    border-radius: 0.25rem;
+    background-color: var(--color-paper-2);
+    color: var(--color-ink);
+    border: 1px solid var(--color-line);
+    font-family: var(--font-body);
+    font-style: normal;
+}
+:global(.lx-quick-add) {
+    position: absolute;
+    right: 0.5rem;
+    bottom: 0.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 100%;
+    background-color: var(--color-paper-2);
+    color: var(--color-ink);
+    border: 1px solid var(--color-line);
+}
+:global(.lx-quick-add:focus-visible) {
+    outline: 3px solid var(--brand-accent);
+    outline-offset: 2px;
+}
+:global(.lx-landscape-gradient) {
+    background: linear-gradient(to top, var(--color-paper) 0%, transparent 100%);
+    color: var(--color-meta);
+    font-family: var(--font-body);
+}
+.meta-item-container {
+    .poster-container {
+        border-radius: 12px;
+        .poster-image-layer {
+            border-radius: 12px;
+            .poster-image {
+                border-radius: 12px;
+            }
+        }
+    }
+    &.poster-shape-landscape {
+        .poster-container {
+            &::after {
+                content: '';
+                position: absolute;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                height: 45%;
+                background: linear-gradient(to top, var(--color-paper) 0%, transparent 100%);
+                pointer-events: none;
+                border-bottom-left-radius: 12px;
+                border-bottom-right-radius: 12px;
+            }
+        }
+    }
+    .title-bar-container {
+        .title-label {
+            font-family: var(--font-body);
+            font-style: normal;
+            color: var(--color-meta);
+            overflow-wrap: anywhere;
+            min-width: 0;
+        }
+    }
+    &:focus-visible {
+        outline: 3px solid var(--brand-accent);
+        outline-offset: 2px;
+    }
+}
+@media only screen and (max-width: 768px) {
+    .meta-item-container {
+        min-width: 0;
+    }
+    :global(.lx-image-grid) {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+/* Hallmark · motion pass · studied-DNA (source: url https://popcornmovies.ac/) */
+// Cards: replace scale(1.05) anti-pattern with lift + brightness.
+// Explicit properties only; focus ring instant brand-accent, never animated.
+// Micro 200ms ease-out. Reduced: collapse to 150ms opacity-only.
+.meta-item-container {
+    transition: transform 200ms ease-out, filter 200ms ease-out, opacity 200ms ease-out;
+
+    &:hover, &:focus-within {
+        transform: translateY(-2px);
+
+        .poster-container {
+            filter: brightness(1.08);
+        }
+    }
+
+    &:hover, &:focus-within, &:global(.active), &:global(.selected) {
+        .poster-container .poster-image-layer {
+            transform: none;
+        }
+    }
+
+    &:focus-visible, &:focus-within {
+        outline: 3px solid var(--brand-accent);
+        outline-offset: 2px;
+    }
+
+    .poster-container {
+        transition: scale 100ms ease-out, filter 200ms ease-out, transform 200ms ease-out, opacity 200ms ease-out;
+    }
+
+    .poster-container .poster-image-layer {
+        transition: transform 200ms ease-out, filter 200ms ease-out, opacity 200ms ease-out;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .meta-item-container {
+        transition: opacity 150ms ease-out;
+        transform: none;
+        animation: none;
+
+        .poster-container, .poster-container .poster-image-layer {
+            transition: opacity 150ms ease-out;
+            transform: none;
+            animation: none;
         }
     }
 }

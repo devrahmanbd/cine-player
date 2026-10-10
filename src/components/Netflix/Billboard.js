@@ -1,4 +1,5 @@
 // Copyright (C) 2026 stremio-linux fork. GPL-2.0.
+/* Hallmark · motion pass · studied-DNA (source: url https://popcornmovies.ac/) */
 const React = require('react');
 const PropTypes = require('prop-types');
 const { default: getMetaDetailsHref } = require('stremio/common/getMetaDetailsHref');
@@ -55,6 +56,7 @@ const Billboard = ({ items }) => {
         }).slice(0, MAX_ITEMS);
     }, [items]);
     const [index, setIndex] = React.useState(0);
+    const [paused, setPaused] = React.useState(false);
     const count = slides.length;
     const goPrev = React.useCallback(() => {
         setIndex((prev) => (prev - 1 + count) % count);
@@ -62,8 +64,15 @@ const Billboard = ({ items }) => {
     const goNext = React.useCallback(() => {
         setIndex((prev) => (prev + 1) % count);
     }, [count]);
+    const onKeyDown = React.useCallback((event) => {
+        if (event.key === 'ArrowLeft') {
+            goPrev();
+        } else if (event.key === 'ArrowRight') {
+            goNext();
+        }
+    }, [goPrev, goNext]);
     React.useEffect(() => {
-        if (count <= 1) {
+        if (count <= 1 || paused) {
             return undefined;
         }
         const id = setInterval(() => {
@@ -72,7 +81,7 @@ const Billboard = ({ items }) => {
         return () => {
             clearInterval(id);
         };
-    }, [count]);
+    }, [count, paused]);
     if (count === 0) {
         return null;
     }
@@ -106,7 +115,7 @@ const Billboard = ({ items }) => {
     const rank = String(safeIndex + 1).padStart(2, '0');
     const eyebrow = '#' + rank + ' · ' + STR.trending;
     return (
-        <section className={'lx-pm-hero'}>
+        <section className={'lx-pm-hero'} onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)} onKeyDown={onKeyDown}>
             <img className={'lx-pm-backdrop'} src={backdrop} alt={''} />
             <div className={'lx-pm-fade'} />
             <div className={'lx-pm-content'} key={safeIndex}>
