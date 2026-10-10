@@ -6,9 +6,9 @@ const PropTypes = require('prop-types');
 const Next = React.forwardRef(({ className }, ref) => {
     return React.createElement(
         'svg',
-        { viewBox: '0 0 24 24', className: className, fill: 'currentColor', stroke: 'none', ref: ref },
-        React.createElement('path', { d: 'M5 4l10 8-10 8V4z' }),
-        React.createElement('path', { d: 'M19 5v14' }),
+        { viewBox: '0 0 24 24', className: className, fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round', ref: ref },
+        React.createElement('path', { d: 'M21 4v16' }),
+        React.createElement('path', { d: 'M6.029 4.285A2 2 0 0 0 3 6v12a2 2 0 0 0 3.029 1.715l9.997-5.998a2 2 0 0 0 .003-3.432z' }),
     );
 });
 

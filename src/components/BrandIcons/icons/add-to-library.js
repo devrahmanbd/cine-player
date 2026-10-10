@@ -7,12 +7,9 @@ const AddToLibrary = React.forwardRef(({ className }, ref) => {
     return React.createElement(
         'svg',
         { viewBox: '0 0 24 24', className: className, fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round', ref: ref },
-        React.createElement('path', { d: 'm16 6 4 14' }),
-        React.createElement('path', { d: 'M12 6v14' }),
-        React.createElement('path', { d: 'M8 8v12' }),
-        React.createElement('path', { d: 'M4 4v16' }),
-        React.createElement('path', { d: 'M18 3v6' }),
-        React.createElement('path', { d: 'M15 6h6' }),
+        React.createElement('path', { d: 'M12 7v6' }),
+        React.createElement('path', { d: 'M15 10H9' }),
+        React.createElement('path', { d: 'M17 3a2 2 0 0 1 2 2v15a1 1 0 0 1-1.496.868l-4.512-2.578a2 2 0 0 0-1.984 0l-4.512 2.578A1 1 0 0 1 5 20V5a2 2 0 0 1 2-2z' }),
     );
 });
 

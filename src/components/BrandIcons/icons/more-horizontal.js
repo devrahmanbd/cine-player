@@ -7,9 +7,9 @@ const MoreHorizontal = React.forwardRef(({ className }, ref) => {
     return React.createElement(
         'svg',
         { viewBox: '0 0 24 24', className: className, fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round', ref: ref },
-        React.createElement('path', { d: 'M5 12h.01' }),
-        React.createElement('path', { d: 'M12 12h.01' }),
-        React.createElement('path', { d: 'M19 12h.01' }),
+        React.createElement('circle', { cx: '12', cy: '12', r: '1' }),
+        React.createElement('circle', { cx: '19', cy: '12', r: '1' }),
+        React.createElement('circle', { cx: '5', cy: '12', r: '1' }),
     );
 });
 

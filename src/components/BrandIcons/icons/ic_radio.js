@@ -6,8 +6,12 @@ const PropTypes = require('prop-types');
 const IcRadio = React.forwardRef(({ className }, ref) => {
     return React.createElement(
         'svg',
-        { viewBox: '0 0 24 24', className: className, fill: 'currentColor', stroke: 'none', ref: ref },
-        React.createElement('path', { d: 'M12 11s-7 0-7 7c0 1.66 1.34 3 3 3h8c1.66 0 3-1.34 3-3 0-7-7-7-7-7zm0-8c-4.97 0-9 4.03-9 9H1l4 4 4-4H7c0-3.87 3.13-7 7-7s7 3.13 7 7h-2l4 4 4-4h-2c0-4.97-4.03-9-9-9z' }),
+        { viewBox: '0 0 24 24', className: className, fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round', ref: ref },
+        React.createElement('path', { d: 'M16.247 7.761a6 6 0 0 1 0 8.478' }),
+        React.createElement('path', { d: 'M19.075 4.933a10 10 0 0 1 0 14.134' }),
+        React.createElement('path', { d: 'M4.925 19.067a10 10 0 0 1 0-14.134' }),
+        React.createElement('path', { d: 'M7.753 16.239a6 6 0 0 1 0-8.478' }),
+        React.createElement('circle', { cx: '12', cy: '12', r: '2' }),
     );
 });
 

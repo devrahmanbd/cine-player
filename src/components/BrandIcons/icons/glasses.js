@@ -7,10 +7,11 @@ const Glasses = React.forwardRef(({ className }, ref) => {
     return React.createElement(
         'svg',
         { viewBox: '0 0 24 24', className: className, fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round', ref: ref },
-        React.createElement('path', { d: 'M2 12s2.5-4 5-4 4 3.5 5 3.5S15.5 8 18 8c2.5 0 4 4 4 4' }),
-        React.createElement('path', { d: 'M2 12h20' }),
-        React.createElement('path', { d: 'M4 12v1a2 2 0 0 0 2 2h1' }),
-        React.createElement('path', { d: 'M20 12v1a2 2 0 0 1-2 2h-1' }),
+        React.createElement('circle', { cx: '6', cy: '15', r: '4' }),
+        React.createElement('circle', { cx: '18', cy: '15', r: '4' }),
+        React.createElement('path', { d: 'M14 15a2 2 0 0 0-2-2 2 2 0 0 0-2 2' }),
+        React.createElement('path', { d: 'M2.5 13 5 7c.7-1.3 1.4-2 3-2' }),
+        React.createElement('path', { d: 'M21.5 13 19 7c-.7-1.3-1.5-2-3-2' }),
     );
 });
 

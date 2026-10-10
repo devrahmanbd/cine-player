@@ -109,7 +109,7 @@ const Billboard = ({ items }) => {
         <section className={'lx-pm-hero'}>
             <img className={'lx-pm-backdrop'} src={backdrop} alt={''} />
             <div className={'lx-pm-fade'} />
-            <div className={'lx-pm-content'}>
+            <div className={'lx-pm-content'} key={safeIndex}>
                 <div className={'lx-pm-eyebrow'}>{eyebrow}</div>
                 <div className={'lx-pm-title'}>{title}</div>
                 {

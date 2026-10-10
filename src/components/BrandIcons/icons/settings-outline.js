@@ -7,8 +7,20 @@ const SettingsOutline = React.forwardRef(({ className }, ref) => {
     return React.createElement(
         'svg',
         { viewBox: '0 0 24 24', className: className, fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round', ref: ref },
-        React.createElement('path', { d: 'M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z' }),
-        React.createElement('path', { d: 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z' }),
+        React.createElement('path', { d: 'M11 10.27 7 3.34' }),
+        React.createElement('path', { d: 'm11 13.73-4 6.93' }),
+        React.createElement('path', { d: 'M12 22v-2' }),
+        React.createElement('path', { d: 'M12 2v2' }),
+        React.createElement('path', { d: 'M14 12h8' }),
+        React.createElement('path', { d: 'm17 20.66-1-1.73' }),
+        React.createElement('path', { d: 'm17 3.34-1 1.73' }),
+        React.createElement('path', { d: 'M2 12h2' }),
+        React.createElement('path', { d: 'm20.66 17-1.73-1' }),
+        React.createElement('path', { d: 'm20.66 7-1.73 1' }),
+        React.createElement('path', { d: 'm3.34 17 1.73-1' }),
+        React.createElement('path', { d: 'm3.34 7 1.73 1' }),
+        React.createElement('circle', { cx: '12', cy: '12', r: '2' }),
+        React.createElement('circle', { cx: '12', cy: '12', r: '8' }),
     );
 });
 

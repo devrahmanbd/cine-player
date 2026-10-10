@@ -7,8 +7,8 @@ const Eye = React.forwardRef(({ className }, ref) => {
     return React.createElement(
         'svg',
         { viewBox: '0 0 24 24', className: className, fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round', ref: ref },
-        React.createElement('path', { d: 'M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z' }),
-        React.createElement('path', { d: 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z' }),
+        React.createElement('path', { d: 'M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0' }),
+        React.createElement('circle', { cx: '12', cy: '12', r: '3' }),
     );
 });
 

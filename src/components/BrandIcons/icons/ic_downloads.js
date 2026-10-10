@@ -6,8 +6,10 @@ const PropTypes = require('prop-types');
 const IcDownloads = React.forwardRef(({ className }, ref) => {
     return React.createElement(
         'svg',
-        { viewBox: '0 0 24 24', className: className, fill: 'currentColor', stroke: 'none', ref: ref },
-        React.createElement('path', { d: 'M20 12l-1.41-1.41L13 16.17V4h-2v12.17l-5.58-5.59L4 12l8 8 8-8z' }),
+        { viewBox: '0 0 24 24', className: className, fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round', ref: ref },
+        React.createElement('path', { d: 'M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z' }),
+        React.createElement('path', { d: 'M12 10v6' }),
+        React.createElement('path', { d: 'm15 13-3 3-3-3' }),
     );
 });
 

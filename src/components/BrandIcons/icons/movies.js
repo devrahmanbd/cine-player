@@ -7,15 +7,14 @@ const Movies = React.forwardRef(({ className }, ref) => {
     return React.createElement(
         'svg',
         { viewBox: '0 0 24 24', className: className, fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round', ref: ref },
-        React.createElement('path', { d: 'M7 4H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h2' }),
-        React.createElement('path', { d: 'M17 4h2a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-2' }),
-        React.createElement('path', { d: 'M7 4v16' }),
-        React.createElement('path', { d: 'M17 4v16' }),
-        React.createElement('path', { d: 'M3 8h4' }),
+        React.createElement('rect', { width: '18', height: '18', x: '3', y: '3', rx: '2' }),
+        React.createElement('path', { d: 'M7 3v18' }),
+        React.createElement('path', { d: 'M3 7.5h4' }),
         React.createElement('path', { d: 'M3 12h18' }),
-        React.createElement('path', { d: 'M3 16h4' }),
-        React.createElement('path', { d: 'M17 8h4' }),
-        React.createElement('path', { d: 'M17 16h4' }),
+        React.createElement('path', { d: 'M3 16.5h4' }),
+        React.createElement('path', { d: 'M17 3v18' }),
+        React.createElement('path', { d: 'M17 7.5h4' }),
+        React.createElement('path', { d: 'M17 16.5h4' }),
     );
 });
 

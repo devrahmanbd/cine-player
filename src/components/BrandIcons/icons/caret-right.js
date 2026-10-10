@@ -6,8 +6,8 @@ const PropTypes = require('prop-types');
 const CaretRight = React.forwardRef(({ className }, ref) => {
     return React.createElement(
         'svg',
-        { viewBox: '0 0 24 24', className: className, fill: 'currentColor', stroke: 'none', ref: ref },
-        React.createElement('path', { d: 'M10 6l6 6-6 6z' }),
+        { viewBox: '0 0 24 24', className: className, fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round', ref: ref },
+        React.createElement('path', { d: 'm9 18 6-6-6-6' }),
     );
 });
 

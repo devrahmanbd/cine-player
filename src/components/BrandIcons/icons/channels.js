@@ -7,10 +7,13 @@ const Channels = React.forwardRef(({ className }, ref) => {
     return React.createElement(
         'svg',
         { viewBox: '0 0 24 24', className: className, fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round', ref: ref },
-        React.createElement('path', { d: 'M5 12.55a11 11 0 0 1 14.08 0' }),
-        React.createElement('path', { d: 'M1.42 9a16 16 0 0 1 21.16 0' }),
-        React.createElement('path', { d: 'M8.53 16.11a6 6 0 0 1 6.95 0' }),
-        React.createElement('path', { d: 'M12 20h.01' }),
+        React.createElement('path', { d: 'M4.9 16.1C1 12.2 1 5.8 4.9 1.9' }),
+        React.createElement('path', { d: 'M7.8 4.7a6.14 6.14 0 0 0-.8 7.5' }),
+        React.createElement('circle', { cx: '12', cy: '9', r: '2' }),
+        React.createElement('path', { d: 'M16.2 4.8c2 2 2.26 5.11.8 7.47' }),
+        React.createElement('path', { d: 'M19.1 1.9a9.96 9.96 0 0 1 0 14.1' }),
+        React.createElement('path', { d: 'M9.5 18h5' }),
+        React.createElement('path', { d: 'm8 22 4-11 4 11' }),
     );
 });
 

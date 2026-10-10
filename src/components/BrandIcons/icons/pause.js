@@ -6,9 +6,9 @@ const PropTypes = require('prop-types');
 const Pause = React.forwardRef(({ className }, ref) => {
     return React.createElement(
         'svg',
-        { viewBox: '0 0 24 24', className: className, fill: 'currentColor', stroke: 'none', ref: ref },
-        React.createElement('path', { d: 'M6 4h4v16H6z' }),
-        React.createElement('path', { d: 'M14 4h4v16h-4z' }),
+        { viewBox: '0 0 24 24', className: className, fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round', ref: ref },
+        React.createElement('rect', { x: '14', y: '3', width: '5', height: '18', rx: '1' }),
+        React.createElement('rect', { x: '5', y: '3', width: '5', height: '18', rx: '1' }),
     );
 });
 

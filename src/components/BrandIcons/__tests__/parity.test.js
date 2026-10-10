@@ -17,12 +17,15 @@ describe('BrandIcons parity', () => {
         expect(ICONS['video-scale-fit']).toBeDefined();
     });
 
-    test('each mapped name renders an svg with at least one path', () => {
+    test('each mapped name renders an svg with at least one graphic element', () => {
         const names = Object.keys(ICONS);
         names.forEach((name) => {
             const html = renderToStaticMarkup(React.createElement(BrandIcon, { name: name, className: 'test-icon' }));
             expect(html).toContain('<svg');
-            expect(html).toContain('<path');
+            // Genuine upstream geometry is not always <path>: e.g. Lucide
+            // ellipsis/ellipsis-vertical are circle-only, pause and
+            // stretch-horizontal are rect-only. Accept any SVG shape element.
+            expect(/<(path|circle|rect|line|polyline|polygon|ellipse)[\s>]/.test(html)).toBe(true);
         });
     });
 

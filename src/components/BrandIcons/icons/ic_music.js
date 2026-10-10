@@ -6,8 +6,10 @@ const PropTypes = require('prop-types');
 const IcMusic = React.forwardRef(({ className }, ref) => {
     return React.createElement(
         'svg',
-        { viewBox: '0 0 24 24', className: className, fill: 'currentColor', stroke: 'none', ref: ref },
-        React.createElement('path', { d: 'M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z' }),
+        { viewBox: '0 0 24 24', className: className, fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round', ref: ref },
+        React.createElement('path', { d: 'M9 18V5l12-2v13' }),
+        React.createElement('circle', { cx: '6', cy: '18', r: '3' }),
+        React.createElement('circle', { cx: '18', cy: '16', r: '3' }),
     );
 });
 

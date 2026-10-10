@@ -7,9 +7,7 @@ const VolumeMedium = React.forwardRef(({ className }, ref) => {
     return React.createElement(
         'svg',
         { viewBox: '0 0 24 24', className: className, fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round', ref: ref },
-        React.createElement('path', { d: 'M11 5 6 9H2v6h4l5 4V5z' }),
-        React.createElement('path', { d: 'M15.54 8.46a5 5 0 0 1 0 7.07' }),
-        React.createElement('path', { d: 'M19.07 4.93a10 10 0 0 1 0 14.14' }),
+        React.createElement('path', { d: 'M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z' }),
     );
 });
 

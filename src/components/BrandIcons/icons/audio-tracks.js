@@ -7,7 +7,12 @@ const AudioTracks = React.forwardRef(({ className }, ref) => {
     return React.createElement(
         'svg',
         { viewBox: '0 0 24 24', className: className, fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round', ref: ref },
-        React.createElement('path', { d: 'M2 13a2 2 0 0 0 2-2V7a2 2 0 0 1 4 0v13a2 2 0 0 0 4 0V4a2 2 0 0 1 4 0v13a2 2 0 0 0 4 0v-4a2 2 0 0 1 2-2' }),
+        React.createElement('path', { d: 'M2 10v3' }),
+        React.createElement('path', { d: 'M6 6v11' }),
+        React.createElement('path', { d: 'M10 3v18' }),
+        React.createElement('path', { d: 'M14 8v7' }),
+        React.createElement('path', { d: 'M18 5v13' }),
+        React.createElement('path', { d: 'M22 10v3' }),
     );
 });
 
