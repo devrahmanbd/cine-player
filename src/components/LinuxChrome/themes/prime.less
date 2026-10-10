@@ -1,0 +1,130 @@
+/* Hallmark · theme-build: prime · paper dark · display grotesk · accent cool-blue · pre-emit critique: P5 H4 E5 S4 R5 V5 */
+:global(html[data-brand-theme='prime']) {
+  --color-paper: #0f1b2d;
+  --color-paper-2: #16283f;
+  --color-ink: #e8eef4;
+  --color-dim: #8fa3b8;
+  --color-line: rgba(160, 200, 255, 0.16);
+  --color-meta: #c9d6e2;
+  --brand-accent: #00A8E1;
+}
+:global(html[data-brand-theme='prime'] body) {
+  background: var(--color-paper);
+  color: var(--color-ink);
+}
+:global(html[data-brand-theme='prime'] h1),
+:global(html[data-brand-theme='prime'] h2),
+:global(html[data-brand-theme='prime'] h3),
+:global(html[data-brand-theme='prime'] .lx-pm-title) {
+  font-style: normal;
+  color: var(--color-ink);
+}
+:global(html[data-brand-theme='prime'] .lx-pm-hero) {
+  height: 64vh;
+  min-height: 440px;
+  background: var(--color-paper);
+}
+:global(html[data-brand-theme='prime'] .lx-pm-backdrop) {
+  opacity: 1;
+  will-change: opacity;
+}
+:global(html[data-brand-theme='prime'] .lx-pm-fade) {
+  background: linear-gradient(to top, var(--color-paper) 0%, transparent 100%);
+}
+:global(html[data-brand-theme='prime'] .lx-pm-content) {
+  max-width: 720px;
+}
+:global(html[data-brand-theme='prime'] .lx-pm-eyebrow) {
+  color: var(--brand-accent);
+  font-style: normal;
+}
+:global(html[data-brand-theme='prime'] .lx-pm-title) {
+  font-size: clamp(2.25rem, 5vw, 3.75rem);
+  font-weight: 700;
+  font-style: normal;
+  line-height: 1.05;
+  color: var(--color-ink);
+}
+:global(html[data-brand-theme='prime'] .lx-pm-meta) {
+  color: var(--color-meta);
+}
+:global(html[data-brand-theme='prime'] .lx-pm-desc) {
+  color: var(--color-meta);
+}
+:global(html[data-brand-theme='prime'] .lx-pm-actions) {
+  margin-top: 20px;
+}
+:global(html[data-brand-theme='prime'] .lx-pm-play) {
+  background: var(--brand-accent);
+  color: #fff;
+  transition: transform 180ms ease-out, opacity 180ms ease-out;
+}
+:global(html[data-brand-theme='prime'] .lx-pm-info) {
+  background: var(--color-paper-2);
+  color: var(--color-ink);
+  border: 1px solid var(--color-line);
+  transition: transform 180ms ease-out, opacity 180ms ease-out;
+}
+:global(html[data-brand-theme='prime'] .lx-pm-play:hover),
+:global(html[data-brand-theme='prime'] .lx-pm-info:hover) {
+  transform: translateY(-1px);
+  opacity: 0.96;
+}
+:global(html[data-brand-theme='prime'] .lx-pm-play:active),
+:global(html[data-brand-theme='prime'] .lx-pm-info:active) {
+  transform: translateY(0) scale(0.98);
+  opacity: 0.9;
+}
+:global(html[data-brand-theme='prime'] .lx-pm-play:focus-visible),
+:global(html[data-brand-theme='prime'] .lx-pm-info:focus-visible),
+:global(html[data-brand-theme='prime'] .lx-pm-arrow:focus-visible),
+:global(html[data-brand-theme='prime'] .lx-pm-seg:focus-visible) {
+  outline: 3px solid var(--brand-accent);
+  outline-offset: 2px;
+}
+:global(html[data-brand-theme='prime'] .lx-pm-segments) {
+  margin-top: 22px;
+}
+:global(html[data-brand-theme='prime'] .lx-pm-seg) {
+  background: var(--color-line);
+  transition: transform 180ms ease-out, opacity 180ms ease-out;
+}
+:global(html[data-brand-theme='prime'] .lx-pm-seg[aria-current='true']) {
+  background: var(--brand-accent);
+}
+:global(html[data-brand-theme='prime'] .lx-pm-arrow) {
+  background: rgba(15, 27, 45, 0.55);
+  color: var(--color-ink);
+  transition: transform 180ms ease-out, opacity 180ms ease-out;
+}
+:global(html[data-brand-theme='prime'] .lx-pm-arrow:hover) {
+  transform: translateY(calc(-50% - 1px));
+  opacity: 0.96;
+}
+:global(html[data-brand-theme='prime'] .lx-pm-arrow:active) {
+  transform: translateY(-50%) scale(0.97);
+  opacity: 0.9;
+}
+@media (max-width: 720px) {
+  :global(html[data-brand-theme='prime'] .lx-pm-hero) {
+    height: 56vh;
+  }
+  :global(html[data-brand-theme='prime'] .lx-pm-content) {
+    left: 5%;
+    right: 5%;
+  }
+  :global(html[data-brand-theme='prime'] .lx-pm-title) {
+    font-size: 1.9rem;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  :global(html[data-brand-theme='prime'] .lx-pm-backdrop),
+  :global(html[data-brand-theme='prime'] .lx-pm-content),
+  :global(html[data-brand-theme='prime'] .lx-pm-play),
+  :global(html[data-brand-theme='prime'] .lx-pm-info),
+  :global(html[data-brand-theme='prime'] .lx-pm-arrow),
+  :global(html[data-brand-theme='prime'] .lx-pm-seg) {
+    animation: none;
+    transition: none;
+  }
+}

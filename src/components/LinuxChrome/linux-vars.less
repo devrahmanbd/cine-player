@@ -1,4 +1,8 @@
 // Copyright (C) 2026 stremio-linux fork. GPL-2.0.
+/* Hallmark themes (runtime switch via html[data-brand-theme], set from /admin brand.theme) */
+@import './themes/netflix.less';
+@import './themes/prime.less';
+@import './themes/tube.less';
 /* Hallmark · layout-pattern pass · studied-DNA (source: url https://popcornmovies.ac/) */
 // Linux-desktop chrome. Selectors use :global() so CSS-modules hashing
 // (css-loader `modules` mode) leaves the literal class names intact —
@@ -643,3 +647,4 @@
 :global(.lx-chip) {
     border-radius: max(var(--lx-radius), 999px);
 }
+

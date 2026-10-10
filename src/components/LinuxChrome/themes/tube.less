@@ -1,0 +1,166 @@
+/* Hallmark · theme-build: tube · paper light · display grotesk · accent warm-red · pre-emit critique: P5 H4 E5 S4 R5 V5 */
+/* Hallmark · theme overlay: tube — YouTube-style LIGHT dense browse-first skin for LinuxStream. */
+/* Scope: every rule lives under html[data-brand-theme='tube']; tokens cascade over :root defaults. */
+/* Contrast: --color-dim #606060 (6.6:1 on white) and --color-meta #404040 (10+:1) both clear 4.5:1. */
+:global(html[data-brand-theme='tube']) {
+    --color-paper: #ffffff;
+    --color-paper-2: #f2f2f2;
+    --color-ink: #0f0f0f;
+    --color-dim: #606060;
+    --color-line: rgba(0, 0, 0, 0.12);
+    --color-meta: #404040;
+    --brand-accent: #FF0000;
+}
+:global(html[data-brand-theme='tube'] body) {
+    background: var(--color-paper);
+    color: var(--color-ink);
+}
+/* Dense browse-first hero: compact 52vh, paper backdrop for the light theme. */
+:global(html[data-brand-theme='tube'] .lx-pm-hero) {
+    height: 52vh;
+    min-height: 340px;
+    background: var(--color-paper);
+}
+:global(html[data-brand-theme='tube'] .lx-pm-backdrop) {
+    opacity: 0.96;
+}
+/* White top-to-bottom legibility treatment: ink text reads over image via this fade. */
+:global(html[data-brand-theme='tube'] .lx-pm-fade) {
+    height: 62%;
+    background: linear-gradient(to top, var(--color-paper) 8%, rgba(255, 255, 255, 0.88) 42%, transparent 100%);
+}
+/* Gutter-guarded content: right rail + capped width so 320px viewports never overflow. */
+:global(html[data-brand-theme='tube'] .lx-pm-content) {
+    right: 4%;
+    max-width: min(640px, 92vw);
+}
+/* Eyebrow: dim text with warm-red accent bar (no new hue, no new font). */
+:global(html[data-brand-theme='tube'] .lx-pm-eyebrow) {
+    color: var(--color-dim);
+    font-style: normal;
+    border-left: 3px solid var(--brand-accent);
+    padding-left: 10px;
+}
+/* Title: ink on paper, tight grotesk scale, NO text-shadow (shadows are for dark heroes). */
+:global(html[data-brand-theme='tube'] .lx-pm-title) {
+    font-size: clamp(2rem, 4.5vw, 3.25rem);
+    font-weight: 700;
+    font-style: normal;
+    line-height: 1.08;
+    color: var(--color-ink);
+    text-shadow: none;
+}
+:global(html[data-brand-theme='tube'] .lx-pm-meta) {
+    color: var(--color-meta);
+}
+:global(html[data-brand-theme='tube'] .lx-pm-desc) {
+    color: var(--color-meta);
+}
+:global(html[data-brand-theme='tube'] .lx-pm-actions) {
+    margin-top: 14px;
+    max-width: 100%;
+}
+/* Play pill stays white/black with a subtle paper-shadow; motion is transform/opacity only. */
+:global(html[data-brand-theme='tube'] .lx-pm-play) {
+    background: #ffffff;
+    color: #000000;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18);
+    transition: transform 180ms ease-out, opacity 180ms ease-out;
+}
+:global(html[data-brand-theme='tube'] .lx-pm-play:hover) {
+    transform: translateY(-1px);
+    opacity: 0.96;
+}
+:global(html[data-brand-theme='tube'] .lx-pm-play:active) {
+    transform: translateY(0) scale(0.98);
+    opacity: 0.9;
+}
+:global(html[data-brand-theme='tube'] .lx-pm-play:focus-visible) {
+    outline: 3px solid var(--brand-accent);
+    outline-offset: 2px;
+}
+/* Info pill: light-gray paper-2 with hairline border; motion is transform/opacity only. */
+:global(html[data-brand-theme='tube'] .lx-pm-info) {
+    background: var(--color-paper-2);
+    color: var(--color-ink);
+    border: 1px solid var(--color-line);
+    transition: transform 180ms ease-out, opacity 180ms ease-out;
+}
+:global(html[data-brand-theme='tube'] .lx-pm-info:hover) {
+    transform: translateY(-1px);
+    opacity: 0.96;
+}
+:global(html[data-brand-theme='tube'] .lx-pm-info:active) {
+    transform: translateY(0) scale(0.98);
+    opacity: 0.9;
+}
+:global(html[data-brand-theme='tube'] .lx-pm-info:focus-visible) {
+    outline: 3px solid var(--brand-accent);
+    outline-offset: 2px;
+}
+:global(html[data-brand-theme='tube'] .lx-pm-segments) {
+    margin-top: 16px;
+    max-width: 100%;
+}
+/* Segments: dark track on paper, warm-red active, red focus ring. */
+:global(html[data-brand-theme='tube'] .lx-pm-seg) {
+    background: rgba(0, 0, 0, 0.22);
+    transition: transform 180ms ease-out, opacity 180ms ease-out;
+}
+:global(html[data-brand-theme='tube'] .lx-pm-seg:hover) {
+    opacity: 0.75;
+}
+:global(html[data-brand-theme='tube'] .lx-pm-seg[aria-current='true']) {
+    background: var(--brand-accent);
+}
+:global(html[data-brand-theme='tube'] .lx-pm-seg:focus-visible) {
+    outline: 3px solid var(--brand-accent);
+    outline-offset: 2px;
+}
+/* Arrows: frosted paper chip, ink glyph; hover keeps vertical centering, no filter. */
+:global(html[data-brand-theme='tube'] .lx-pm-arrow) {
+    background: rgba(255, 255, 255, 0.92);
+    color: var(--color-ink);
+    border: 1px solid var(--color-line);
+    transition: transform 180ms ease-out, opacity 180ms ease-out;
+}
+:global(html[data-brand-theme='tube'] .lx-pm-arrow:hover) {
+    transform: translateY(calc(-50% - 1px));
+    opacity: 0.96;
+}
+:global(html[data-brand-theme='tube'] .lx-pm-arrow:active) {
+    transform: translateY(-50%) scale(0.97);
+    opacity: 0.9;
+}
+:global(html[data-brand-theme='tube'] .lx-pm-arrow:focus-visible) {
+    outline: 3px solid var(--brand-accent);
+    outline-offset: 2px;
+}
+@media (max-width: 720px) {
+    :global(html[data-brand-theme='tube'] .lx-pm-hero) {
+        height: 48vh;
+        min-height: 300px;
+    }
+    :global(html[data-brand-theme='tube'] .lx-pm-content) {
+        left: 4%;
+        right: 4%;
+        bottom: 12%;
+        max-width: 100%;
+    }
+    :global(html[data-brand-theme='tube'] .lx-pm-title) {
+        font-size: 1.8rem;
+    }
+}
+@media (prefers-reduced-motion: reduce) {
+    :global(html[data-brand-theme='tube'] .lx-pm-backdrop),
+    :global(html[data-brand-theme='tube'] .lx-pm-content),
+    :global(html[data-brand-theme='tube'] .lx-pm-play),
+    :global(html[data-brand-theme='tube'] .lx-pm-info),
+    :global(html[data-brand-theme='tube'] .lx-pm-arrow),
+    :global(html[data-brand-theme='tube'] .lx-pm-seg),
+    :global(html[data-brand-theme='tube'] .lx-pm-hero),
+    :global(html[data-brand-theme='tube'] .lx-pm-segments) {
+        animation: none;
+        transition: none;
+    }
+}
