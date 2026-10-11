@@ -40,6 +40,7 @@ const NavMenu = (props) => {
         <Popup
             open={menuOpen}
             direction={props.direction || 'bottom-left'}
+            portal={props.portal === true}
             onCloseRequest={closeMenu}
             renderLabel={renderLabel}
             renderMenu={renderMenu}
@@ -50,7 +51,8 @@ const NavMenu = (props) => {
 
 NavMenu.propTypes = {
     renderLabel: PropTypes.func,
-    direction: PropTypes.oneOf(['top-left', 'bottom-left', 'top-right', 'bottom-right'])
+    direction: PropTypes.oneOf(['top-left', 'bottom-left', 'top-right', 'bottom-right']),
+    portal: PropTypes.bool
 };
 
 module.exports = NavMenu;

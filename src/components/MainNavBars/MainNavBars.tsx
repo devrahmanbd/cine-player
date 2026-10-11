@@ -73,7 +73,7 @@ const MainNavBars = memo(({ className, route, children, verticalNav = true }: Pr
                             selected={route}
                             tabs={TABS}
                         />
-                        <NavMenu direction={'top-right'} renderLabel={renderProfileLabel} />
+                        <NavMenu direction={'top-right'} portal={true} renderLabel={renderProfileLabel} />
                     </div>
                     :
                     null
