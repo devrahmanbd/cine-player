@@ -67,6 +67,14 @@ describe('admin users tab', () => {
         assert.equal((await post('/api/users/login', { email: 'tab@example.com', password: 's3cret-pass' })).status, 403);
         assert.equal((await fetch(`${base}/api/users/me`, { headers: { cookie: userCookie } })).status, 401);
     });
+    it('disable deletes session rows (no revival on re-enable)', async () => {
+        const re = await put(`/api/admin/users/${userId}`, { disabled: false }, adminCookie);
+        assert.equal(re.status, 200);
+        assert.equal((await fetch(`${base}/api/users/me`, { headers: { cookie: userCookie } })).status, 401);
+        const ok = await post('/api/users/login', { email: 'tab@example.com', password: 's3cret-pass' });
+        assert.equal(ok.status, 200);
+        userCookie = ok.headers.get('set-cookie').split(';')[0];
+    });
     it('unknown id 404s; weak temp password rejected', async () => {
         assert.equal((await put('/api/admin/users/999999', { disabled: true }, adminCookie)).status, 404);
         assert.equal((await put(`/api/admin/users/${userId}`, { password: 'short' }, adminCookie)).status, 400);

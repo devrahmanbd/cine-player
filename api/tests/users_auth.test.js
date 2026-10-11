@@ -53,4 +53,31 @@ describe('users auth', () => {
         assert.equal((await post('/api/users/logout', {}, cookie)).status, 200);
         assert.equal((await fetch(`${base}/api/users/me`, { headers: { cookie } })).status, 401);
     });
+    it('me re-issues the cookie when the session slides, not otherwise', async () => {
+        const res = await post('/api/users/signup', { email: 'slide@example.com', password: 's3cret-pass' });
+        assert.equal(res.status, 200);
+        const raw = res.headers.get('set-cookie').split(';')[0];
+        const token = raw.split('=')[1];
+        const { sha256hex } = require('../users');
+        const idRows = await db.query('SELECT id FROM users WHERE email = ?', ['slide@example.com']);
+        const userId = idRows[0].id;
+        // Fresh session: no slide, no Set-Cookie, exact body shape.
+        const fresh = await fetch(`${base}/api/users/me`, { headers: { cookie: raw } });
+        assert.equal(fresh.status, 200);
+        assert.deepEqual(await fresh.json(), { id: userId, email: 'slide@example.com' });
+        assert.equal(fresh.headers.get('set-cookie'), null);
+        // Near-expiry session (<7d left): slide extends the row and re-issues the same token.
+        await db.query('UPDATE sessions SET expires_at = ? WHERE token_hash = ?', [
+            new Date(Date.now() + 24 * 3600 * 1000).toISOString(),
+            sha256hex(token),
+        ]);
+        const slid = await fetch(`${base}/api/users/me`, { headers: { cookie: raw } });
+        assert.equal(slid.status, 200);
+        const setCookie = slid.headers.get('set-cookie');
+        assert.ok(setCookie, 'expected Set-Cookie on slide');
+        assert.match(setCookie, new RegExp(`^user_session=${token}`));
+        assert.match(setCookie, /Max-Age=2592000/);
+        const rows = await db.query('SELECT expires_at FROM sessions WHERE token_hash = ?', [sha256hex(token)]);
+        assert.ok(Date.parse(rows[0].expires_at) - Date.now() > 7 * 24 * 3600 * 1000, 'expiry extended past 7d');
+    });
 });

@@ -123,7 +123,9 @@ const USER_SESSION_TTL_MS = 30 * 24 * 3600 * 1000;
 const USER_SESSION_SLIDE_MS = 7 * 24 * 3600 * 1000;
 
 // Cookie session lookup: unexpired sessions row joined to an enabled user.
-// Returns { id, email } or null. Never throws.
+// Returns { id, email, slid, token } or null. Never throws.
+// slid is true when the expiry was extended; token is the raw cookie token
+// so callers (GET /api/users/me) can re-issue Set-Cookie on a slide.
 async function userSession(request, db) {
     try {
         const token = parseCookies(request.headers.cookie).user_session || '';
@@ -139,13 +141,15 @@ async function userSession(request, db) {
             await db.query('DELETE FROM sessions WHERE token_hash = ?', [tokenHash]);
             return null;
         }
+        let slid = false;
         if (expires - Date.now() < USER_SESSION_SLIDE_MS) {
             await db.query('UPDATE sessions SET expires_at = ? WHERE token_hash = ?', [
                 new Date(Date.now() + USER_SESSION_TTL_MS).toISOString(),
                 tokenHash,
             ]);
+            slid = true;
         }
-        return { id: rows[0].id, email: rows[0].email };
+        return { id: rows[0].id, email: rows[0].email, slid, token };
     } catch {
         return null;
     }
@@ -413,10 +417,9 @@ function startServer({ port = 3001, db, uploadsDir } = {}) {
                 const body = await readJson(request, 64 * 1024);
                 const email = normalizeEmail(body.email);
                 const ip = (request.socket && request.socket.remoteAddress) || 'unknown';
-                if (
-                    !takeToken(loginEmailLimits, email || 'unknown', 20, 3600 * 1000) ||
-                    !takeToken(loginIpLimits, ip, 20, 3600 * 1000)
-                ) {
+                const emailOk = takeToken(loginEmailLimits, email || 'unknown', 20, 3600 * 1000);
+                const ipOk = takeToken(loginIpLimits, ip, 20, 3600 * 1000);
+                if (!emailOk || !ipOk) {
                     return send(response, 429, { error: 'rate limited' });
                 }
                 const rows = await db.query('SELECT id, email, password_hash, disabled FROM users WHERE email = ?', [
@@ -455,7 +458,9 @@ function startServer({ port = 3001, db, uploadsDir } = {}) {
             if (request.method === 'GET' && url.pathname === '/api/users/me') {
                 const me = await userSession(request, db);
                 if (!me) return send(response, 401, { error: 'unauthorized' });
-                return send(response, 200, me);
+                const body = { id: me.id, email: me.email };
+                if (me.slid) return send(response, 200, body, { 'set-cookie': userSessionCookie(me.token) });
+                return send(response, 200, body);
             }
 
             if (request.method === 'GET' && url.pathname === '/api/users/library') {
@@ -589,10 +594,9 @@ function startServer({ port = 3001, db, uploadsDir } = {}) {
                 const email = normalizeEmail(body.email);
                 if (!validEmail(email)) return send(response, 400, { error: 'bad input' });
                 const ip = (request.socket && request.socket.remoteAddress) || 'unknown';
-                if (
-                    !takeToken(otpRequestEmailLimits, email, 5, 3600 * 1000) ||
-                    !takeToken(otpRequestIpLimits, ip, 20, 3600 * 1000)
-                ) {
+                const otpEmailOk = takeToken(otpRequestEmailLimits, email, 5, 3600 * 1000);
+                const otpIpOk = takeToken(otpRequestIpLimits, ip, 20, 3600 * 1000);
+                if (!otpEmailOk || !otpIpOk) {
                     return send(response, 429, { error: 'rate limited' });
                 }
                 const users = await db.query('SELECT id, disabled FROM users WHERE email = ?', [email]);
@@ -623,6 +627,7 @@ function startServer({ port = 3001, db, uploadsDir } = {}) {
                     });
                 } catch (error) {
                     console.error('otp mail failed', error && error.message ? error.message : error);
+                    return send(response, 503, { error: 'mail failed' });
                 }
                 return send(response, 200, { ok: true });
             }
@@ -726,6 +731,7 @@ function startServer({ port = 3001, db, uploadsDir } = {}) {
                     }
                     sets.push('disabled = ?');
                     params.push(body.disabled ? 1 : 0);
+                    if (body.disabled === true) revokeSessions = true;
                 }
                 if ('password' in body) {
                     if (!validPassword(body.password)) return send(response, 400, { error: 'bad input' });

@@ -30,16 +30,29 @@ describe('users otp reset', () => {
     });
     const signup = (email, password) => post('/api/users/signup', { email, password });
 
-    it('request always 200 for valid shapes, 400 for bad shapes', async () => {
+    it('request contract: 503 on smtp failure, 200 oracle-free for ghosts, 400 for bad shapes', async () => {
         await signup('otp-req@example.com', 'old-password-1');
+        // No SMTP_FROM in this harness, so sendMail throws for the real user:
+        // spec contract is 503 with a generic oracle-free body.
         const ok = await post('/api/users/password/otp/request', { email: 'otp-req@example.com' });
-        assert.equal(ok.status, 200);
-        assert.deepEqual(await ok.json(), { ok: true });
+        assert.equal(ok.status, 503);
+        assert.deepEqual(await ok.json(), { error: 'mail failed' });
         const ghost = await post('/api/users/password/otp/request', { email: 'ghost-otp@example.com' });
         assert.equal(ghost.status, 200);
         assert.deepEqual(await ghost.json(), { ok: true });
         assert.equal((await post('/api/users/password/otp/request', { email: 'bad' })).status, 400);
         assert.equal((await post('/api/users/password/otp/request', {})).status, 400);
+    });
+
+    it('smtp failure is 503 with the same generic body for every address', async () => {
+        await signup('otp-smtp-a@example.com', 'old-password-1');
+        await signup('otp-smtp-b@example.com', 'old-password-1');
+        const a = await post('/api/users/password/otp/request', { email: 'otp-smtp-a@example.com' });
+        const b = await post('/api/users/password/otp/request', { email: 'otp-smtp-b@example.com' });
+        assert.equal(a.status, 503);
+        assert.equal(b.status, 503);
+        assert.deepEqual(await a.json(), { error: 'mail failed' });
+        assert.deepEqual(await b.json(), { error: 'mail failed' });
     });
 
     it('rejects wrong codes identically and locks after 5', async () => {
