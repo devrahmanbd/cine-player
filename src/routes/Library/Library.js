@@ -7,6 +7,7 @@ const PropTypes = require('prop-types');
 const classnames = require('classnames');
 const NotFound = require('stremio/routes/NotFound');
 const { useProfile, useNotifications, withCoreSuspender } = require('stremio/common');
+const useLocalAuth = require('stremio/common/useLocalAuth');
 const { default: toPath } = require('stremio-router/toPath');
 const { DelayedRenderer, Image, MainNavBars, LibItem, MultiselectMenu } = require('stremio/components');
 const { default: Placeholder } = require('./Placeholder');
@@ -45,6 +46,8 @@ const Library = ({ model }) => {
     const navigate = useNavigate();
     const { t } = useTranslation();
     const profile = useProfile();
+    const { user: localUser } = useLocalAuth();
+    const signedIn = profile.auth !== null || localUser !== null;
     const notifications = useNotifications();
     const [library] = useLibrary(model, urlParams);
     const basePath = model === 'continue_watching' ? '/continuewatching' : '/library';
@@ -70,11 +73,11 @@ const Library = ({ model }) => {
         if (scrollContainerRef.current !== null && library.selected !== null && library.catalog.length !== 0) {
             scrollContainerRef.current.scrollTop = 0;
         }
-    }, [profile.auth, library.selected]);
+    }, [profile.auth, localUser, library.selected]);
     return (
         <MainNavBars className={styles['library-container']} route={model}>
             {
-                profile.auth !== null ?
+                signedIn ?
                     <div className={styles['library-content']}>
                         <div className={styles['selectable-inputs-container']}>
                             <MultiselectMenu {...typeSelect} className={styles['select-input-container']} />
