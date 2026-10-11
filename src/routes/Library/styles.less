@@ -15,7 +15,8 @@
 
 .library-container {
     height: calc(100% - var(--safe-area-inset-bottom));
-    background-color: transparent;
+    background: linear-gradient(180deg, var(--color-paper-2) 0%, var(--color-paper) 100%);
+    background-color: var(--color-paper);
 
     .library-content {
         width: 100%;
@@ -37,7 +38,7 @@
             padding: 1.5rem;
             overflow: visible;
             z-index: 2;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+            border-bottom: 1px solid var(--color-line);
             gap: 1rem;
 
             .select-input-container {
@@ -83,10 +84,13 @@
             .message-label {
                 flex: none;
                 margin-bottom: 2rem;
+                font-family: var(--font-display);
+                font-style: normal;
                 font-size: 2rem;
                 font-weight: 400;
                 text-align: center;
-                color: var(--primary-foreground-color);
+                color: var(--color-dim);
+                text-wrap: balance;
             }
         }
 
@@ -201,6 +205,118 @@
 
             .meta-items-container {
                 grid-template-columns: repeat(3, 1fr);
+            }
+        }
+    }
+}
+
+// Library visual polish (additive only): lift + stagger, accent select, centered empty state.
+@keyframes library-fade-up {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.library-container {
+    .library-content {
+        .message-container {
+            justify-content: center;
+            text-align: center;
+        }
+
+        .message-container .image {
+            margin-left: auto;
+            margin-right: auto;
+            outline: 1px solid rgba(255, 255, 255, 0.1);
+            outline-offset: -1px;
+        }
+
+        .meta-items-container > * {
+            min-width: 0;
+            animation: library-fade-up 260ms ease-out both;
+            transition-property: transform, opacity, filter;
+            transition-duration: 180ms;
+            transition-timing-function: ease-out;
+        }
+
+        .meta-items-container > *:nth-child(2) { animation-delay: 25ms; }
+        .meta-items-container > *:nth-child(3) { animation-delay: 50ms; }
+        .meta-items-container > *:nth-child(4) { animation-delay: 75ms; }
+        .meta-items-container > *:nth-child(5) { animation-delay: 100ms; }
+        .meta-items-container > *:nth-child(6) { animation-delay: 125ms; }
+        .meta-items-container > *:nth-child(7) { animation-delay: 150ms; }
+        .meta-items-container > *:nth-child(8) { animation-delay: 175ms; }
+
+        .meta-items-container > *:hover {
+            transform: translateY(-2px);
+            filter: brightness(1.08);
+            opacity: 0.98;
+        }
+
+        .meta-items-container > *:focus-visible {
+            outline: 2px solid var(--brand-accent);
+            outline-offset: 2px;
+        }
+
+        .select-input-container:focus-within {
+            outline: 2px solid var(--brand-accent);
+            outline-offset: 2px;
+        }
+
+        .select-input-container :focus-visible {
+            outline: 2px solid var(--brand-accent);
+            outline-offset: 2px;
+        }
+
+        .select-input-container [aria-selected='true'],
+        .select-input-container [aria-checked='true'],
+        .select-input-container [data-selected='true'] {
+            border-color: var(--brand-accent);
+            box-shadow: 0 0 0 1px var(--brand-accent);
+        }
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .library-container {
+        .library-content {
+            .meta-items-container > * {
+                animation: none;
+                transition: none;
+            }
+
+            .meta-items-container > *:hover {
+                transform: none;
+                filter: none;
+            }
+        }
+    }
+}
+
+@media only screen and (max-width: 720px) {
+    .library-container {
+        overflow-x: clip;
+
+        .library-content {
+            .selectable-inputs-container {
+                flex-wrap: wrap;
+                padding: 1rem;
+            }
+
+            .meta-items-container {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                padding: 0 1rem;
+            }
+
+            .message-container {
+                padding: 2rem 1rem;
+
+                &:first-child {
+                    padding: 2rem 1rem;
+                }
+
+                .message-label {
+                    font-size: 1.5rem;
+                }
             }
         }
     }

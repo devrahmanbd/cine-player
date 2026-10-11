@@ -7,6 +7,7 @@
     position: relative;
     display: flex;
     flex-direction: column;
+    min-width: 0;
 
     .week {
         flex: none;
@@ -14,8 +15,9 @@
         height: 3rem;
         width: 100%;
         display: grid;
-        grid-template-columns: repeat(7, 1fr);
+        grid-template-columns: repeat(7, minmax(0, 1fr));
         align-items: center;
+        border-bottom: 1px solid var(--color-line);
 
         .day {
             position: relative;
@@ -42,10 +44,59 @@
         position: relative;
         width: 100%;
         height: 100%;
+        min-width: 0;
         display: grid;
-        grid-template-columns: repeat(7, 1fr);
+        grid-template-columns: repeat(7, minmax(0, 1fr));
         gap: 1px;
         grid-auto-rows: 1fr;
+
+        & > * {
+            animation: cal-row-in 240ms ease-out backwards;
+        }
+
+        & > *:nth-child(2) {
+            animation-delay: 25ms;
+        }
+
+        & > *:nth-child(3) {
+            animation-delay: 50ms;
+        }
+
+        & > *:nth-child(4) {
+            animation-delay: 75ms;
+        }
+
+        & > *:nth-child(5) {
+            animation-delay: 100ms;
+        }
+
+        & > *:nth-child(6) {
+            animation-delay: 125ms;
+        }
+
+        & > *:nth-child(7) {
+            animation-delay: 150ms;
+        }
+
+        & > *:nth-child(8) {
+            animation-delay: 175ms;
+        }
+
+        & > *:nth-child(n+9) {
+            animation-delay: 200ms;
+        }
+    }
+}
+
+@keyframes cal-row-in {
+    from {
+        opacity: 0;
+        transform: translateY(8px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
     }
 }
 
@@ -61,6 +112,24 @@
                     display: block;
                 }
             }
+        }
+    }
+}
+
+@media only screen and (max-width: 720px) {
+    .table {
+        overflow-x: clip;
+
+        .week, .grid {
+            grid-template-columns: repeat(7, minmax(0, 1fr));
+        }
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .table {
+        .grid > * {
+            animation: none;
         }
     }
 }

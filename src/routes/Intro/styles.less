@@ -259,12 +259,26 @@
             }
         }
 
-        .icon {
+        @keyframes intro-spinner-rotate {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .spinner {
             flex: none;
             width: 5rem;
             height: 5rem;
-            color: var(--primary-foreground-color);
-            animation: 1s linear infinite alternate flash;
+            border-radius: 50%;
+            border: 0.5rem solid var(--color-line);
+            border-top-color: var(--brand-accent);
+            animation: intro-spinner-rotate 900ms linear infinite;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .spinner {
+                animation: none;
+            }
         }
 
         .label {

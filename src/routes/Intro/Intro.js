@@ -4,7 +4,6 @@ const React = require('react');
 const { useTranslation } = require('react-i18next');
 const { useSearchParams, useNavigate } = require('react-router-dom');
 const classnames = require('classnames');
-const { default: Icon } = require('stremio/components/BrandIcons');
 const Modal = require('stremio/router/Modal');
 const { useBinaryState, useLocalAuth } = require('stremio/common');
 const { default: useRouteFocused } = require('stremio/common/useRouteFocused');
@@ -517,7 +516,7 @@ const Intro = () => {
                 loaderModalOpen ?
                     <Modal className={styles['loading-modal-container']}>
                         <div className={styles['loader-container']}>
-                            <Icon className={styles['icon']} name={'person'} />
+                            <div className={styles['spinner']} />
                             <div className={styles['label']}>{t('AUTHENTICATING')}</div>
                         </div>
                     </Modal>

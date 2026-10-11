@@ -8,9 +8,12 @@
     flex-direction: column;
     gap: 1rem;
     width: 20rem;
+    min-width: 0;
     padding: 0 1rem;
     overflow-y: auto;
-    
+    overflow-x: clip;
+    border-left: 1px solid var(--color-line);
+
     @supports (scroll-padding-block-start: 0.15rem) {
         scroll-padding-block-start: 0.15rem;
     }
@@ -37,5 +40,22 @@
 @media only screen and (max-width: @xsmall) and (orientation: landscape) {
     .list {
         display: none;
+    }
+}
+
+@media only screen and (max-width: 720px) {
+    .list {
+        width: 100%;
+        min-width: 0;
+        overflow-x: clip;
+        border-left: none;
+        border-top: 1px solid var(--color-line);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .list {
+        animation: none;
+        transition: none;
     }
 }
