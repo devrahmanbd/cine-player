@@ -42,6 +42,13 @@ function hashPassword(password) {
     return `${salt}:${hash}`;
 }
 
+function verifyPassword(password, stored) {
+    const parts = String(stored).split(':');
+    if (parts.length !== 2 || !parts[0] || !parts[1]) return false;
+    const check = crypto.scryptSync(password, parts[0], 64).toString('hex');
+    return crypto.timingSafeEqual(Buffer.from(check, 'hex'), Buffer.from(parts[1], 'hex'));
+}
+
 async function createSchema(db) {
     const schema = fs.readFileSync(path.join(__dirname, 'schema.sql'), 'utf8');
     for (const statement of schema.split(';')) {
@@ -93,4 +100,4 @@ if (require.main === module) {
         });
 }
 
-module.exports = { createSchema, seedDefaults, hashPassword, SLOT_KEYS, DEFAULT_CODES };
+module.exports = { createSchema, seedDefaults, hashPassword, verifyPassword, SLOT_KEYS, DEFAULT_CODES };

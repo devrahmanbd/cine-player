@@ -6,20 +6,13 @@ const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const { openDb } = require('./db');
-const { createSchema, seedDefaults, SLOT_KEYS } = require('./seed');
+const { createSchema, seedDefaults, verifyPassword, SLOT_KEYS } = require('./seed');
 const { resolveAvailability } = require('./availability');
 const { curlJson } = require('./curlfetch');
 
 const BRAND_COLUMNS = ['site_name', 'tagline', 'logo_url', 'favicon_url', 'theme', 'accent'];
 const UPLOAD_EXTS = { '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.svg': 'image/svg+xml', '.ico': 'image/x-icon' };
 const MAX_UPLOAD_BYTES = 2 * 1024 * 1024;
-
-function verifyPassword(password, stored) {
-    const [salt, hash] = String(stored).split(':');
-    if (!salt || !hash) return false;
-    const check = crypto.scryptSync(password, salt, 64).toString('hex');
-    return crypto.timingSafeEqual(Buffer.from(check, 'hex'), Buffer.from(hash, 'hex'));
-}
 
 function parseCookies(header) {
     const out = {};

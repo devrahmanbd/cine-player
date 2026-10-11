@@ -38,3 +38,43 @@ CREATE TABLE IF NOT EXISTS blocked_patterns (
     pattern TEXT NOT NULL UNIQUE,
     created_at TEXT NOT NULL DEFAULT ''
 );
+CREATE TABLE IF NOT EXISTS users (
+    id INTEGER PRIMARY KEY,
+    email TEXT NOT NULL UNIQUE,
+    password_hash TEXT NOT NULL,
+    disabled INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS sessions (
+    token_hash TEXT PRIMARY KEY,
+    user_id INTEGER NOT NULL,
+    expires_at TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS otp_codes (
+    id INTEGER PRIMARY KEY,
+    email TEXT NOT NULL,
+    code_hash TEXT NOT NULL,
+    expires_at TEXT NOT NULL,
+    attempts INTEGER NOT NULL DEFAULT 0,
+    consumed INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS library_items (
+    user_id INTEGER NOT NULL,
+    type TEXT NOT NULL,
+    meta_id TEXT NOT NULL,
+    added_at TEXT NOT NULL,
+    PRIMARY KEY (user_id, type, meta_id)
+);
+CREATE TABLE IF NOT EXISTS progress (
+    user_id INTEGER NOT NULL,
+    type TEXT NOT NULL,
+    meta_id TEXT NOT NULL,
+    season INTEGER,
+    episode INTEGER,
+    position INTEGER NOT NULL DEFAULT 0,
+    duration INTEGER NOT NULL DEFAULT 0,
+    updated_at TEXT NOT NULL,
+    PRIMARY KEY (user_id, type, meta_id)
+);
