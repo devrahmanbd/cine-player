@@ -7,7 +7,7 @@ const { createPath, useLocation, useNavigate } = require('react-router');
 const { useCore } = require('stremio/core');
 const { Routes, useGoBack } = require('stremio-router');
 const { Chromecast, ServicesProvider, GamepadProvider } = require('stremio/services');
-const { FullscreenProvider, ToastProvider, TooltipProvider, ShortcutsProvider, DiscordProvider, CONSTANTS, useBinaryState, useProfile, withCoreSuspender, usePlatform } = require('stremio/common');
+const { FullscreenProvider, ToastProvider, TooltipProvider, ShortcutsProvider, DiscordProvider, CONSTANTS, useBinaryState, useLocalAuth, useProfile, withCoreSuspender, usePlatform } = require('stremio/common');
 const ServicesToaster = require('./ServicesToaster');
 const SearchParamsHandler = require('./SearchParamsHandler');
 const DeepLinkHandler = require('./DeepLinkHandler');
@@ -24,6 +24,7 @@ const NAVIGATE_TABS_ROUTES = ['/', '/discover', '/library', '/calendar', '/setti
 const App = () => {
     const core = useCore();
     const profile = useProfile();
+    const { user: localUser, loading: localAuthLoading, error: localAuthError } = useLocalAuth();
     const changeInterfaceScale = useInterfaceScale(profile);
     const { i18n } = useTranslation();
     const { shell } = usePlatform();
@@ -117,6 +118,36 @@ const App = () => {
             shell.send('quit');
         }
     }, [profile.settings, i18n, shell]);
+
+    React.useEffect(() => {
+        // Local auth replaced the Stremio backend: core stays logged out
+        // forever (a stored legacy session is dropped so the core-based
+        // redirects in Routes never fire).
+        if (profile.auth !== null) {
+            core.transport.dispatch({
+                action: 'Ctx',
+                args: {
+                    action: 'Logout'
+                }
+            });
+        }
+    }, [profile.auth, core.transport]);
+
+    React.useEffect(() => {
+        if (localAuthLoading) {
+            return;
+        }
+        if (localUser === null && localAuthError === '') {
+            // Our session probe has not settled yet; wait for it instead of
+            // flashing logged-out users through the app.
+            return;
+        }
+        if (localUser === null && location.pathname !== '/intro' && location.pathname !== '/admin') {
+            navigate('/intro', { replace: true });
+        } else if (localUser !== null && location.pathname === '/intro') {
+            navigate('/', { replace: true });
+        }
+    }, [localUser, localAuthLoading, localAuthError, location.pathname, navigate]);
 
     React.useEffect(() => {
         const onWindowFocus = () => {

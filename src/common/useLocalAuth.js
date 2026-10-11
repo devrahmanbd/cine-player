@@ -39,6 +39,17 @@ const authReducer = (state, action) => {
     }
 };
 
+// Shared session state: every hook instance (Intro, App gate, NavMenu,
+// Settings) reads and writes the same login. Without this, one surface
+// logging in would leave the others showing the stale anonymous state.
+let sharedState = initialAuthState;
+const stateListeners = new Set();
+
+const setSharedState = (action) => {
+    sharedState = authReducer(sharedState, action);
+    stateListeners.forEach((listener) => listener());
+};
+
 const readError = async (response) => {
     try {
         const data = await response.json();
@@ -76,76 +87,84 @@ const toUser = (data) => {
 };
 
 const useLocalAuth = () => {
-    const [state, dispatch] = React.useReducer(authReducer, initialAuthState);
+    const [, forceUpdate] = React.useReducer((count) => count + 1, 0);
+
+    React.useEffect(() => {
+        const listener = () => forceUpdate();
+        stateListeners.add(listener);
+        return () => {
+            stateListeners.delete(listener);
+        };
+    }, []);
 
     const refresh = React.useCallback(async () => {
-        dispatch({ type: 'start' });
+        setSharedState({ type: 'start' });
         try {
             const user = toUser(await apiRequest('/api/users/me'));
-            dispatch({ type: 'success', user });
+            setSharedState({ type: 'success', user });
             return user;
         } catch (error) {
-            dispatch({ type: 'failure', error: error.message });
+            setSharedState({ type: 'failure', error: error.message });
             throw error;
         }
     }, []);
 
     const signup = React.useCallback(async (email, password) => {
-        dispatch({ type: 'start' });
+        setSharedState({ type: 'start' });
         try {
             const user = toUser(await apiRequest('/api/users/signup', { email, password }));
-            dispatch({ type: 'success', user });
+            setSharedState({ type: 'success', user });
             return user;
         } catch (error) {
-            dispatch({ type: 'failure', error: error.message });
+            setSharedState({ type: 'failure', error: error.message });
             throw error;
         }
     }, []);
 
     const login = React.useCallback(async (email, password) => {
-        dispatch({ type: 'start' });
+        setSharedState({ type: 'start' });
         try {
             const user = toUser(await apiRequest('/api/users/login', { email, password }));
-            dispatch({ type: 'success', user });
+            setSharedState({ type: 'success', user });
             return user;
         } catch (error) {
-            dispatch({ type: 'failure', error: error.message });
+            setSharedState({ type: 'failure', error: error.message });
             throw error;
         }
     }, []);
 
     const logout = React.useCallback(async () => {
-        dispatch({ type: 'start' });
+        setSharedState({ type: 'start' });
         try {
             await apiRequest('/api/users/logout', {});
-            dispatch({ type: 'clear' });
+            setSharedState({ type: 'clear' });
         } catch (error) {
-            dispatch({ type: 'failure', error: error.message });
+            setSharedState({ type: 'failure', error: error.message });
             throw error;
         }
     }, []);
 
     const requestOtp = React.useCallback(async (email) => {
-        dispatch({ type: 'start' });
+        setSharedState({ type: 'start' });
         try {
             await apiRequest('/api/users/password/otp/request', { email });
-            dispatch({ type: 'success', user: state.user });
+            setSharedState({ type: 'success', user: sharedState.user });
         } catch (error) {
-            dispatch({ type: 'failure', error: error.message });
+            setSharedState({ type: 'failure', error: error.message });
             throw error;
         }
-    }, [state.user]);
+    }, []);
 
     const confirmOtp = React.useCallback(async (email, code, password) => {
-        dispatch({ type: 'start' });
+        setSharedState({ type: 'start' });
         try {
             await apiRequest('/api/users/password/otp/verify', { email, code, password });
-            dispatch({ type: 'success', user: state.user });
+            setSharedState({ type: 'success', user: sharedState.user });
         } catch (error) {
-            dispatch({ type: 'failure', error: error.message });
+            setSharedState({ type: 'failure', error: error.message });
             throw error;
         }
-    }, [state.user]);
+    }, []);
 
     React.useEffect(() => {
         refresh().catch(() => {
@@ -154,9 +173,9 @@ const useLocalAuth = () => {
     }, [refresh]);
 
     return {
-        user: state.user,
-        loading: state.loading,
-        error: state.error,
+        user: sharedState.user,
+        loading: sharedState.loading,
+        error: sharedState.error,
         signup,
         login,
         logout,

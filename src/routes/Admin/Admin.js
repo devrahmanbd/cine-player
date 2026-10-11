@@ -47,6 +47,17 @@ const STR = {
     blockedRemoved: 'Pattern removed.',
     confirmRemoveBlocked: 'Remove this pattern?',
     noBlocked: 'No blocked patterns yet.',
+    usersTitle: 'Users',
+    failedLoadUsers: 'Failed to load users',
+    noUsers: 'No users yet.',
+    disabledLabel: 'disabled',
+    disableUser: 'Disable',
+    enableUser: 'Enable',
+    tempPasswordPlaceholder: 'Temporary password',
+    setTempPassword: 'Set password',
+    userDisabled: 'User disabled.',
+    userEnabled: 'User enabled.',
+    passwordUpdated: 'Password updated.',
 };
 
 const BRAND_FIELDS = ['site_name', 'tagline', 'logo_url', 'favicon_url', 'theme', 'accent'];
@@ -350,6 +361,56 @@ const BlockedPatternsForm = () => {
     );
 };
 
+const UsersForm = () => {
+    const [users, setUsers] = React.useState(null);
+    const [status, setStatus] = React.useState('');
+    const [passwords, setPasswords] = React.useState({});
+    React.useEffect(() => {
+        api('/api/admin/users').then(setUsers).catch(() => setStatus(STR.failedLoadUsers));
+    }, []);
+    const setDisabled = async (user, disabled) => {
+        setStatus('');
+        try {
+            const updated = await api(`/api/admin/users/${user.id}`, { method: 'PUT', body: JSON.stringify({ disabled }) });
+            setUsers((prev) => prev.map((item) => (item.id === user.id ? { ...item, disabled: updated.disabled } : item)));
+            setStatus(disabled ? STR.userDisabled : STR.userEnabled);
+        } catch {
+            setStatus(STR.updateFailed);
+        }
+    };
+    const setPassword = async (user) => {
+        setStatus('');
+        try {
+            await api(`/api/admin/users/${user.id}`, { method: 'PUT', body: JSON.stringify({ password: passwords[user.id] || '' }) });
+            setPasswords((prev) => ({ ...prev, [user.id]: '' }));
+            setStatus(STR.passwordUpdated);
+        } catch (err) {
+            setStatus(`${STR.addFailed} ${err.message}`);
+        }
+    };
+    if (users === null) return <div>{status || STR.loading}</div>;
+    return (
+        <div>
+            <h2>{STR.usersTitle}</h2>
+            {users.length === 0 ? <div>{STR.noUsers}</div> : null}
+            {users.map((user) => (
+                <div key={user.id} className={'admin-slot'}>
+                    <span>{user.email}</span>
+                    {user.disabled ? <span>{STR.disabledLabel}</span> : null}
+                    <button onClick={() => setDisabled(user, !user.disabled)}>{user.disabled ? STR.enableUser : STR.disableUser}</button>
+                    <input
+                        value={passwords[user.id] || ''}
+                        placeholder={STR.tempPasswordPlaceholder}
+                        onChange={(e) => setPasswords({ ...passwords, [user.id]: e.target.value })}
+                    />
+                    <button onClick={() => setPassword(user)}>{STR.setTempPassword}</button>
+                </div>
+            ))}
+            {status ? <div className={'admin-status'}>{status}</div> : null}
+        </div>
+    );
+};
+
 const Admin = () => {
     const [authed, setAuthed] = React.useState(null);
     const [tab, setTab] = React.useState('brand');
@@ -373,7 +434,7 @@ const Admin = () => {
         <div className={'admin-page'}>
             <h1>{STR.siteAdmin}</h1>
             <div className={'admin-tabs'}>
-                {['brand', 'ads', 'uploads', 'addons', 'blocked'].map((name) => (
+                {['brand', 'ads', 'uploads', 'addons', 'blocked', 'users'].map((name) => (
                     <button key={name} className={tab === name ? 'admin-active' : ''} onClick={() => setTab(name)}>
                         {name}
                     </button>
@@ -385,6 +446,7 @@ const Admin = () => {
             {tab === 'uploads' ? <UploadsForm /> : null}
             {tab === 'addons' ? <AddonsForm /> : null}
             {tab === 'blocked' ? <BlockedPatternsForm /> : null}
+            {tab === 'users' ? <UsersForm /> : null}
         </div>
     );
 };

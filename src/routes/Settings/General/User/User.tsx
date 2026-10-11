@@ -1,35 +1,29 @@
 import React, { useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useCore } from 'stremio/core';
+import { useNavigate } from 'react-router';
+import useLocalAuth from 'stremio/common/useLocalAuth';
 import { Link } from '../../components';
 import styles from './User.less';
 
-type Props = {
-    profile: Profile,
-};
-
-const User = ({ profile }: Props) => {
+const User = () => {
     const { t } = useTranslation();
-    const core = useCore();
+    const navigate = useNavigate();
+    const { user: localUser, logout } = useLocalAuth();
 
     const avatar = useMemo(() => (
-        !profile.auth ?
+        !localUser ?
             `url('${require('/assets/images/anonymous.png')}')`
             :
-            profile.auth.user.avatar ?
-                `url('${profile.auth.user.avatar}')`
-                :
-                `url('${require('/assets/images/default_avatar.png')}')`
-    ), [profile.auth]);
+            `url('${require('/assets/images/default_avatar.png')}')`
+    ), [localUser]);
 
     const onLogout = useCallback(() => {
-        core.transport.dispatch({
-            action: 'Ctx',
-            args: {
-                action: 'Logout'
-            }
+        logout().then(() => {
+            navigate('/intro');
+        }).catch(() => {
+            // No surface for logout errors here; the session simply stays.
         });
-    }, []);
+    }, [logout, navigate]);
 
     return (
         <div className={styles['user']}>
@@ -39,13 +33,13 @@ const User = ({ profile }: Props) => {
                     style={{ backgroundImage: avatar }}
                 />
                 <div className={styles['email-logout-container']}>
-                    <div className={styles['email-label-container']} title={profile.auth === null ? t('ANONYMOUS_USER') : profile.auth.user.email}>
+                    <div className={styles['email-label-container']} title={localUser === null ? t('ANONYMOUS_USER') : localUser.email}>
                         <div className={styles['email-label']}>
-                            {profile.auth === null ? t('ANONYMOUS_USER') : profile.auth.user.email}
+                            {localUser === null ? t('ANONYMOUS_USER') : localUser.email}
                         </div>
                     </div>
                     {
-                        profile.auth !== null ?
+                        localUser !== null ?
                             <Link
                                 label={t('LOG_OUT')}
                                 onClick={onLogout}

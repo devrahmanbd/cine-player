@@ -98,7 +98,7 @@ const General = forwardRef<HTMLDivElement, Props>(({ profile }: Props, ref) => {
 
     return <>
         <Section ref={ref}>
-            <User profile={profile} />
+            <User />
         </Section>
 
         <Section>

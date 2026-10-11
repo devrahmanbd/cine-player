@@ -6,9 +6,9 @@ const PropTypes = require('prop-types');
 const classnames = require('classnames');
 const { useTranslation } = require('react-i18next');
 const { default: Icon } = require('stremio/components/BrandIcons');
-const { useCore } = require('stremio/core');
 const { Button } = require('stremio/components');
 const { useFullscreen } = require('stremio/common/Fullscreen');
+const useLocalAuth = require('stremio/common/useLocalAuth');
 const useProfile = require('stremio/common/useProfile');
 const usePWA = require('stremio/common/usePWA');
 const { default: usePlayUrl } = require('stremio/common/usePlayUrl');
@@ -20,8 +20,8 @@ const styles = require('./styles');
 const NavMenuContent = ({ onClick }) => {
     const { t } = useTranslation();
     const navigate = useNavigate();
-    const core = useCore();
     const profile = useProfile();
+    const { user: localUser, logout } = useLocalAuth();
     const streamingServer = useStreamingServer();
     const { handlePlayUrl } = usePlayUrl();
     const toast = useToast();
@@ -34,13 +34,12 @@ const NavMenuContent = ({ onClick }) => {
         );
     }, [profile.settings, streamingServer.settings]);
     const logoutButtonOnClick = React.useCallback(() => {
-        core.transport.dispatch({
-            action: 'Ctx',
-            args: {
-                action: 'Logout'
-            }
+        logout().then(() => {
+            navigate('/intro');
+        }).catch(() => {
+            // No surface for logout errors here; the session simply stays.
         });
-    }, []);
+    }, [logout, navigate]);
     const onPlayMagnetLinkClick = React.useCallback(async () => {
         try {
             const clipboardText = await navigator.clipboard.readText();
@@ -57,10 +56,10 @@ const NavMenuContent = ({ onClick }) => {
         }
     }, [handlePlayUrl]);
     const handleAuth = React.useCallback(() => {
-        return profile.auth !== null
+        return localUser !== null
             ? logoutButtonOnClick()
             : navigate('/intro');
-    }, [profile.auth, logoutButtonOnClick, navigate]);
+    }, [localUser, logoutButtonOnClick, navigate]);
 
     return (
         <div className={classnames(styles['nav-menu-container'], 'animation-fade-in', { [styles['with-warning']]: !streamingServerWarningDismissed } )} onClick={onClick}>
@@ -68,21 +67,18 @@ const NavMenuContent = ({ onClick }) => {
                 <div
                     className={styles['avatar-container']}
                     style={{
-                        backgroundImage: profile.auth === null ?
+                        backgroundImage: localUser === null ?
                             `url('${require('/assets/images/anonymous.png')}')`
                             :
-                            profile.auth.user.avatar ?
-                                `url('${profile.auth.user.avatar}')`
-                                :
-                                `url('${require('/assets/images/default_avatar.png')}')`
+                            `url('${require('/assets/images/default_avatar.png')}')`
                     }}
                 />
                 <div className={styles['user-info-details']}>
                     <div className={styles['email-container']}>
-                        <div className={styles['email-label']}>{profile.auth === null ? t('ANONYMOUS_USER') : profile.auth.user.email}</div>
+                        <div className={styles['email-label']}>{localUser === null ? t('ANONYMOUS_USER') : localUser.email}</div>
                     </div>
-                    <Button className={styles['logout-button-container']} title={profile.auth === null ? `${t('LOG_IN')} / ${t('SIGN_UP')}` : t('LOG_OUT')} onClick={handleAuth}>
-                        <div className={styles['logout-label']}>{profile.auth === null ? `${t('LOG_IN')} / ${t('SIGN_UP')}` : t('LOG_OUT')}</div>
+                    <Button className={styles['logout-button-container']} title={localUser === null ? `${t('LOG_IN')} / ${t('SIGN_UP')}` : t('LOG_OUT')} onClick={handleAuth}>
+                        <div className={styles['logout-label']}>{localUser === null ? `${t('LOG_IN')} / ${t('SIGN_UP')}` : t('LOG_OUT')}</div>
                     </Button>
                 </div>
             </div>
