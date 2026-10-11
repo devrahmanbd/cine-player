@@ -94,6 +94,14 @@ function parseBlockedPatternId(pathname) {
     return id;
 }
 
+function parseAdminUserId(pathname) {
+    const match = /^\/api\/admin\/users\/([^/]+)$/.exec(pathname);
+    if (!match) return null;
+    const id = Number(match[1]);
+    if (!Number.isInteger(id) || id <= 0) return null;
+    return id;
+}
+
 function parseLibraryItem(pathname) {
     const match = /^\/api\/users\/library\/([^/]+)\/([^/]+)$/.exec(pathname);
     if (!match) return null;
@@ -685,6 +693,65 @@ function startServer({ port = 3001, db, uploadsDir } = {}) {
 
             if (request.method === 'POST' && url.pathname === '/api/admin/logout') {                sessions.delete(cookies.bl_session);
                 return send(response, 200, { ok: true }, { 'set-cookie': 'bl_session=; HttpOnly; Path=/; Max-Age=0' });
+            }
+
+            if (request.method === 'GET' && url.pathname === '/api/admin/users') {
+                if (!authed) return send(response, 401, { error: 'unauthorized' });
+                const rows = await db.query(
+                    'SELECT id, email, disabled, created_at FROM users ORDER BY id ASC'
+                );
+                return send(
+                    response,
+                    200,
+                    rows.map((row) => ({
+                        id: row.id,
+                        email: row.email,
+                        disabled: Number(row.disabled),
+                        created_at: row.created_at,
+                    }))
+                );
+            }
+
+            if (request.method === 'PUT' && url.pathname.startsWith('/api/admin/users/')) {
+                if (!authed) return send(response, 401, { error: 'unauthorized' });
+                const userId = parseAdminUserId(url.pathname);
+                if (userId === null) return send(response, 404, { error: 'not found' });
+                const body = await readJson(request, 64 * 1024);
+                const sets = [];
+                const params = [];
+                let revokeSessions = false;
+                if ('disabled' in body) {
+                    if (typeof body.disabled !== 'boolean') {
+                        return send(response, 400, { error: 'bad disabled' });
+                    }
+                    sets.push('disabled = ?');
+                    params.push(body.disabled ? 1 : 0);
+                }
+                if ('password' in body) {
+                    if (!validPassword(body.password)) return send(response, 400, { error: 'bad input' });
+                    sets.push('password_hash = ?');
+                    params.push(hashPassword(body.password));
+                    revokeSessions = true;
+                }
+                if (sets.length === 0) return send(response, 400, { error: 'nothing to update' });
+                const found = await db.query('SELECT id FROM users WHERE id = ?', [userId]);
+                if (found.length === 0) return send(response, 404, { error: 'not found' });
+                params.push(userId);
+                await db.query(`UPDATE users SET ${sets.join(', ')} WHERE id = ?`, params);
+                if (revokeSessions) {
+                    await db.query('DELETE FROM sessions WHERE user_id = ?', [userId]);
+                }
+                const rows = await db.query(
+                    'SELECT id, email, disabled, created_at FROM users WHERE id = ?',
+                    [userId]
+                );
+                const row = rows[0];
+                return send(response, 200, {
+                    id: row.id,
+                    email: row.email,
+                    disabled: Number(row.disabled),
+                    created_at: row.created_at,
+                });
             }
 
             if (request.method === 'POST' && url.pathname === '/api/uploads') {
