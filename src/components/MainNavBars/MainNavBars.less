@@ -114,3 +114,30 @@
         }
     }
 }
+
+// Sidebar profile popup: CSS-anchored above the button. Top-level selectors
+// on purpose — the menu renders in the portal layer, NOT inside .side-bar.
+// The Popup positioner still writes inline top/left/max-height, so these win
+// with !important and the JS values are ignored. The fixed layer (z-index 2)
+// keeps stacking + outside-click dismiss.
+.profile-menu {
+    position: fixed !important;
+    top: auto !important;
+    bottom: 4.25rem !important;
+    left: 0.5rem !important;
+    right: auto !important;
+    width: 22rem !important;
+    max-width: calc(100vw - 1rem) !important;
+    max-height: min(70vh, 32rem) !important;
+    margin: 0 !important;
+    overflow-y: auto !important;
+}
+
+@media only screen and (max-width: @minimum) {
+    // Bottom-bar layout: popup anchors above the trailing button.
+    .profile-menu {
+        left: auto !important;
+        right: 0.5rem !important;
+        bottom: calc(var(--vertical-nav-bar-size) + 0.5rem) !important;
+    }
+}

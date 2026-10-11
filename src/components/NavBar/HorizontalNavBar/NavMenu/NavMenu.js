@@ -41,6 +41,7 @@ const NavMenu = (props) => {
             open={menuOpen}
             direction={props.direction || 'bottom-left'}
             portal={props.portal === true}
+            menuClassName={props.menuClassName}
             onCloseRequest={closeMenu}
             renderLabel={renderLabel}
             renderMenu={renderMenu}
@@ -52,7 +53,8 @@ const NavMenu = (props) => {
 NavMenu.propTypes = {
     renderLabel: PropTypes.func,
     direction: PropTypes.oneOf(['top-left', 'bottom-left', 'top-right', 'bottom-right']),
-    portal: PropTypes.bool
+    portal: PropTypes.bool,
+    menuClassName: PropTypes.string
 };
 
 module.exports = NavMenu;
