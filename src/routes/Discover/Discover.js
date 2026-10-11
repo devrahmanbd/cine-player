@@ -7,7 +7,7 @@ const { useSearchParams } = require('react-router-dom');
 const classnames = require('classnames');
 const { default: Icon } = require('stremio/components/BrandIcons');
 const { useCore } = require('stremio/core');
-const { CONSTANTS, useBinaryState, useMediaQuery, useOnScrollToBottom, withCoreSuspender } = require('stremio/common');
+const { CONSTANTS, useBinaryState, useMediaQuery, useOnScrollToBottom, withCoreSuspender, useLocalLibrary } = require('stremio/common');
 const { epgDateKey, parseEpgDate } = require('stremio/common/EPG');
 const screenSizes = require('stremio/common/screen-sizes.less');
 const { default: getMetaDetailsHref } = require('stremio/common/getMetaDetailsHref');
@@ -52,6 +52,7 @@ const Discover = () => {
     const routeActive = useRouteActive();
     const [discover, loadNextPage] = useDiscover(urlParams, catalogQueryParams);
     const [selectInputs, hasNextPage] = useSelectableInputs(discover);
+    const localLibrary = useLocalLibrary();
     const [filtersOpen, openFilters, closeFilters] = useBinaryState(false);
     const selectedTypeOption = selectInputs[0].options.find(({ value }) => value === selectInputs[0].value);
     const selectedCatalogOption = selectInputs[1].options.find(({ value }) => value === selectInputs[1].value);
@@ -66,6 +67,18 @@ const Discover = () => {
         return discover.catalog?.content.type === 'Ready' &&
             discover.catalog.content.content[selectedMetaItemIndex] || null;
     }, [discover.catalog, selectedMetaItemIndex]);
+    const selectedMetaType = React.useMemo(() => {
+        if (selectedMetaItem !== null && typeof selectedMetaItem.type === 'string') {
+            return selectedMetaItem.type;
+        }
+        return typeof type === 'string' ? type : null;
+    }, [selectedMetaItem, type]);
+    const inLocalLibrary = React.useMemo(() => {
+        if (selectedMetaItem === null || typeof selectedMetaType !== 'string' || typeof selectedMetaItem.id !== 'string') {
+            return false;
+        }
+        return localLibrary.items.some((item) => item.type === selectedMetaType && item._id === selectedMetaItem.id);
+    }, [localLibrary.items, selectedMetaItem, selectedMetaType]);
 
     const metasContainerRef = React.useRef();
     const metaPreviewRef = React.useRef();
@@ -111,31 +124,23 @@ const Discover = () => {
         }
     }, [discover.catalog, isEpgLayout, hasNextPage, loadNextPage]);
     const addToLibrary = React.useCallback(() => {
-        if (selectedMetaItem === null) {
+        if (selectedMetaItem === null || typeof selectedMetaType !== 'string' || typeof selectedMetaItem.id !== 'string') {
             return;
         }
 
-        core.transport.dispatch({
-            action: 'Ctx',
-            args: {
-                action: 'AddToLibrary',
-                args: selectedMetaItem
-            }
-        });
-    }, [selectedMetaItem]);
+        localLibrary.addToLibrary(selectedMetaType, selectedMetaItem.id).then(() => {
+            window.dispatchEvent(new Event('stremio-local-library-changed'));
+        }).catch(() => undefined);
+    }, [selectedMetaItem, selectedMetaType, localLibrary]);
     const removeFromLibrary = React.useCallback(() => {
-        if (selectedMetaItem === null) {
+        if (selectedMetaItem === null || typeof selectedMetaType !== 'string' || typeof selectedMetaItem.id !== 'string') {
             return;
         }
 
-        core.transport.dispatch({
-            action: 'Ctx',
-            args: {
-                action: 'RemoveFromLibrary',
-                args: selectedMetaItem.id
-            }
-        });
-    }, [selectedMetaItem]);
+        localLibrary.removeFromLibrary(selectedMetaType, selectedMetaItem.id).then(() => {
+            window.dispatchEvent(new Event('stremio-local-library-changed'));
+        }).catch(() => undefined);
+    }, [selectedMetaItem, selectedMetaType, localLibrary]);
     const toggleWatched = React.useCallback(() => {
         if (selectedMetaItem === null) {
             return;
@@ -267,8 +272,8 @@ const Discover = () => {
         description: selectedMetaItem.description,
         deepLinks: selectedMetaItem.deepLinks,
         trailerStreams: selectedMetaItem.trailerStreams,
-        inLibrary: selectedMetaItem.inLibrary,
-        toggleInLibrary: selectedMetaItem.inLibrary ? removeFromLibrary : addToLibrary,
+        inLibrary: inLocalLibrary,
+        toggleInLibrary: inLocalLibrary ? removeFromLibrary : addToLibrary,
         watched: selectedMetaItem.watched,
         toggleWatched,
         metaId: selectedMetaItem.id,

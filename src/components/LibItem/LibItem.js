@@ -5,17 +5,20 @@ const { useNavigate } = require('react-router');
 const { useNavigateWithOrigin } = require('stremio-router');
 const { default: toPath } = require('stremio-router/toPath');
 const PropTypes = require('prop-types');
-const { useCore } = require('stremio/core');
 const { default: getMetaDetailsHref } = require('stremio/common/getMetaDetailsHref');
 const MetaItem = require('stremio/components/MetaItem');
 const { t } = require('i18next');
 
-const LibItem = ({ _id, removable, notifications, watched, detailsVideosFirst, ...props }) => {
+const LibItem = ({ _id, type, removable, notifications, watched, detailsVideosFirst, progress, deepLinks, optionOnSelect, ...props }) => {
     const navigate = useNavigate();
     const { navigateWithOrigin } = useNavigateWithOrigin();
-    const core = useCore();
-    const detailsHref = React.useMemo(() => getMetaDetailsHref(props.deepLinks, detailsVideosFirst), [props.deepLinks, detailsVideosFirst]);
-    const playerHref = props.deepLinks && typeof props.deepLinks.player === 'string' ? props.deepLinks.player : null;
+    // No backend field for watched — local only.
+    const [localWatched, setLocalWatched] = React.useState(!!watched);
+    React.useEffect(() => {
+        setLocalWatched(!!watched);
+    }, [watched]);
+    const detailsHref = React.useMemo(() => getMetaDetailsHref(deepLinks, detailsVideosFirst), [deepLinks, detailsVideosFirst]);
+    const playerHref = deepLinks && typeof deepLinks.player === 'string' ? deepLinks.player : null;
 
     const newVideos = React.useMemo(() => {
         const count = notifications.items?.[_id]?.length ?? 0;
@@ -27,7 +30,7 @@ const LibItem = ({ _id, removable, notifications, watched, detailsVideosFirst, .
             { label: 'LIBRARY_PLAY', value: 'play' },
             { label: 'LIBRARY_DETAILS', value: 'details' },
             { label: 'LIBRARY_RESUME_DISMISS', value: 'dismiss' },
-            { label: watched ? 'CTX_MARK_UNWATCHED' : 'CTX_MARK_WATCHED', value: 'watched' },
+            { label: localWatched ? 'CTX_MARK_UNWATCHED' : 'CTX_MARK_WATCHED', value: 'watched' },
             { label: 'LIBRARY_REMOVE', value: 'remove' },
         ].filter(({ value }) => {
             switch (value) {
@@ -38,19 +41,21 @@ const LibItem = ({ _id, removable, notifications, watched, detailsVideosFirst, .
                 case 'watched':
                     return typeof watched !== 'undefined' && typeof detailsHref === 'string';
                 case 'dismiss':
-                    return typeof _id === 'string' && props.progress !== null && !isNaN(props.progress) && props.progress > 0;
+                    return typeof _id === 'string' && progress !== null && !isNaN(progress) && progress > 0;
                 case 'remove':
                     return typeof _id === 'string' && removable;
+                default:
+                    return false;
             }
         }).map((option) => ({
             ...option,
             label: t(option.label)
         }));
-    }, [_id, removable, props.progress, playerHref, detailsHref, watched]);
+    }, [_id, removable, progress, playerHref, detailsHref, watched, localWatched]);
 
     const optionOnSelect = React.useCallback((event) => {
-        if (typeof props.optionOnSelect === 'function') {
-            props.optionOnSelect(event);
+        if (typeof optionOnSelect === 'function') {
+            optionOnSelect(event);
         }
 
         if (!event.nativeEvent.optionSelectPrevented) {
@@ -70,57 +75,45 @@ const LibItem = ({ _id, removable, notifications, watched, detailsVideosFirst, .
                     break;
                 }
                 case 'watched': {
-                    if (typeof _id === 'string') {
-                        core.transport.dispatch({
-                            action: 'Ctx',
-                            args: {
-                                action: 'LibraryItemMarkAsWatched',
-                                args: {
-                                    id: _id,
-                                    is_watched: !watched
-                                }
-                            }
-                        });
-                    }
+                    // No backend field for watched — local only.
+                    setLocalWatched((prev) => !prev);
 
                     break;
                 }
                 case 'dismiss': {
-                    if (typeof _id === 'string') {
-                        core.transport.dispatch({
-                            action: 'Ctx',
-                            args: {
-                                action: 'RewindLibraryItem',
-                                args: _id
-                            }
-                        });
-                        core.transport.dispatch({
-                            action: 'Ctx',
-                            args: {
-                                action: 'DismissNotificationItem',
-                                args: _id
-                            }
-                        });
+                    if (typeof _id === 'string' && typeof type === 'string') {
+                        fetch(`/api/users/progress/${encodeURIComponent(type)}/${encodeURIComponent(_id)}`, {
+                            method: 'DELETE',
+                            credentials: 'same-origin',
+                        }).then(() => {
+                            window.dispatchEvent(new Event('stremio-local-library-changed'));
+                        }).catch(() => undefined);
                     }
 
                     break;
                 }
                 case 'remove': {
-                    if (typeof _id === 'string') {
-                        core.transport.dispatch({
-                            action: 'Ctx',
-                            args: {
-                                action: 'RemoveFromLibrary',
-                                args: _id
-                            }
-                        });
+                    if (typeof _id === 'string' && typeof type === 'string') {
+                        const libraryUrl = `/api/users/library/${encodeURIComponent(type)}/${encodeURIComponent(_id)}`;
+                        const progressUrl = `/api/users/progress/${encodeURIComponent(type)}/${encodeURIComponent(_id)}`;
+                        fetch(libraryUrl, {
+                            method: 'DELETE',
+                            credentials: 'same-origin',
+                        }).then(() => {
+                            return fetch(progressUrl, {
+                                method: 'DELETE',
+                                credentials: 'same-origin',
+                            });
+                        }).then(() => {
+                            window.dispatchEvent(new Event('stremio-local-library-changed'));
+                        }).catch(() => undefined);
                     }
 
                     break;
                 }
             }
         }
-    }, [_id, detailsHref, navigate, navigateWithOrigin, playerHref, props.optionOnSelect, watched]);
+    }, [_id, type, detailsHref, navigate, navigateWithOrigin, playerHref, optionOnSelect]);
 
     const onPlayClick = React.useCallback((event) => {
         event.preventDefault();
@@ -132,18 +125,22 @@ const LibItem = ({ _id, removable, notifications, watched, detailsVideosFirst, .
     return (
         <MetaItem
             {...props}
+            type={type}
+            progress={progress}
+            deepLinks={deepLinks}
             href={detailsHref}
-            watched={watched}
+            watched={localWatched}
             newVideos={newVideos}
             options={options}
             optionOnSelect={optionOnSelect}
-            onPlayClick={typeof playerHref === 'string' && props.progress > 0 ? onPlayClick : null}
+            onPlayClick={typeof playerHref === 'string' && progress > 0 ? onPlayClick : null}
         />
     );
 };
 
 LibItem.propTypes = {
     _id: PropTypes.string,
+    type: PropTypes.string,
     removable: PropTypes.bool,
     progress: PropTypes.number,
     notifications: PropTypes.object,

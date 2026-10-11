@@ -6,7 +6,7 @@ const { useTranslation } = require('react-i18next');
 const classnames = require('classnames');
 const { useCore } = require('stremio/core');
 const { useContentGamepadNavigation } = require('stremio/services/GamepadNavigation');
-const { withCoreSuspender, useProfile } = require('stremio/common');
+const { withCoreSuspender, useProfile, useLocalLibrary } = require('stremio/common');
 const { useNavigateWithOrigin } = require('stremio-router');
 const { HorizontalNavBar, DelayedRenderer, Image, MetaPreview } = require('stremio/components');
 const StreamsList = require('./StreamsList');
@@ -68,32 +68,31 @@ const MetaDetails = () => {
             metaDetails.libraryItem?.state?.video_id === video.id &&
             metaDetails.libraryItem?.state?.duration > 0;
     }, [metaDetails.libraryItem, video]);
+    const localLibrary = useLocalLibrary();
+    const inLocalLibrary = React.useMemo(() => {
+        if (typeof type !== 'string' || typeof id !== 'string') {
+            return false;
+        }
+        return localLibrary.items.some((item) => item.type === type && item._id === id);
+    }, [localLibrary.items, type, id]);
     const addToLibrary = React.useCallback(() => {
-        if (metaDetails.metaItem === null || metaDetails.metaItem.content.type !== 'Ready') {
+        if (typeof type !== 'string' || typeof id !== 'string') {
             return;
         }
 
-        core.transport.dispatch({
-            action: 'Ctx',
-            args: {
-                action: 'AddToLibrary',
-                args: metaDetails.metaItem.content.content
-            }
-        });
-    }, [metaDetails]);
+        localLibrary.addToLibrary(type, id).then(() => {
+            window.dispatchEvent(new Event('stremio-local-library-changed'));
+        }).catch(() => undefined);
+    }, [localLibrary, type, id]);
     const removeFromLibrary = React.useCallback(() => {
-        if (metaDetails.metaItem === null || metaDetails.metaItem.content.type !== 'Ready') {
+        if (typeof type !== 'string' || typeof id !== 'string') {
             return;
         }
 
-        core.transport.dispatch({
-            action: 'Ctx',
-            args: {
-                action: 'RemoveFromLibrary',
-                args: metaDetails.metaItem.content.content.id
-            }
-        });
-    }, [metaDetails]);
+        localLibrary.removeFromLibrary(type, id).then(() => {
+            window.dispatchEvent(new Event('stremio-local-library-changed'));
+        }).catch(() => undefined);
+    }, [localLibrary, type, id]);
     const toggleWatched = React.useCallback(() => {
         if (metaDetails.metaItem === null || metaDetails.metaItem.content.type !== 'Ready') {
             return;
@@ -162,7 +161,7 @@ const MetaDetails = () => {
                 meta={readyMeta}
                 addonName={metaDetails.metaItem.addon.manifest.name}
                 streams={metaDetails.streams}
-                onToggleLibrary={readyMeta.inLibrary ? removeFromLibrary : addToLibrary}
+                onToggleLibrary={inLocalLibrary ? removeFromLibrary : addToLibrary}
             >
                 <HorizontalNavBar
                     className={styles['nav-bar']}
@@ -237,8 +236,8 @@ const MetaDetails = () => {
                                             }
                                             links={metaDetails.metaItem.content.content.links}
                                             trailerStreams={metaDetails.metaItem.content.content.trailerStreams}
-                                            inLibrary={metaDetails.metaItem.content.content.inLibrary}
-                                            toggleInLibrary={metaDetails.metaItem.content.content.inLibrary ? removeFromLibrary : addToLibrary}
+                                            inLibrary={inLocalLibrary}
+                                            toggleInLibrary={inLocalLibrary ? removeFromLibrary : addToLibrary}
                                             watched={metaDetails.metaItem.content.content.watched}
                                             toggleWatched={toggleWatched}
                                             metaId={metaDetails.metaItem.content.content.id}

@@ -91,8 +91,9 @@ const Board = () => {
         items: (Array.isArray(liveTvContinueWatching.items) ? liveTvContinueWatching.items : [])
             .map((item) => ({ ...item, posterShape: 'landscape' })),
     }), [liveTvContinueWatching.items]);
+    const continueWatchingItems = Array.isArray(continueWatchingPreview.items) ? continueWatchingPreview.items : [];
     const boardCatalogsOffset =
-        (continueWatchingPreview.items.length > 0 ? 1 : 0) +
+        (continueWatchingItems.length > 0 ? 1 : 0) +
         (liveTvCatalog.items.length > 0 ? 1 : 0);
     const showStreamingServerWarning = React.useMemo(() => {
         return streamingServer.settings !== null && streamingServer.settings.type === 'Err' && (
@@ -244,11 +245,11 @@ const Board = () => {
                             null
                     }
                     {
-                        continueWatchingPreview.items.length > 0 ?
+                        continueWatchingItems.length > 0 ?
                             <MetaRow
                                 className={classnames(styles['board-row'], styles['continue-watching-row'], 'animation-fade-in')}
                                 title={t.string('BOARD_CONTINUE_WATCHING')}
-                                catalog={continueWatchingPreview}
+                                catalog={{ items: continueWatchingItems }}
                                 itemComponent={ContinueWatchingItem}
                                 notifications={notifications}
                             />

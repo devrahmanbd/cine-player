@@ -1,32 +1,45 @@
 // Copyright (C) 2017-2023 Smart code 203358507
 
 const React = require('react');
-const { useCore } = require('stremio/core');
-const { useModelState } = require('stremio/common');
+const useLocalLibrary = require('stremio/common/useLocalLibrary');
 
-const useLibrary = (model, urlParams, queryParams) => {
-    const core = useCore();
-    const loadNextPage = React.useCallback(() => {
-        core.transport.dispatch({
-            action: 'LibraryWithFilters',
-            args: {
-                action: 'LoadNextPage',
-            }
-        }, 'library');
-    }, []);
-    const action = React.useMemo(() => ({
-        action: 'Load',
-        args: {
-            model: 'LibraryWithFilters',
-            args: {
-                request: {
-                    type: typeof urlParams.type === 'string' ? urlParams.type : null,
-                    sort: queryParams.has('sort') ? queryParams.get('sort') : undefined,
-                }
-            }
+const useLibrary = (model, urlParams) => {
+    const { items, loading, error, refresh } = useLocalLibrary();
+
+    React.useEffect(() => {
+        const onChanged = () => {
+            refresh().catch(() => undefined);
+        };
+        window.addEventListener('stremio-local-library-changed', onChanged);
+        return () => {
+            window.removeEventListener('stremio-local-library-changed', onChanged);
+        };
+    }, [refresh]);
+
+    const catalog = React.useMemo(() => {
+        const type = urlParams !== null && typeof urlParams === 'object' && typeof urlParams.type === 'string' ?
+            urlParams.type
+            :
+            null;
+        let filtered = items;
+        if (type === 'movie' || type === 'series') {
+            filtered = filtered.filter((item) => item.type === type);
         }
-    }), [urlParams, queryParams]);
-    const library = useModelState({ model, action });
+        if (model === 'continue_watching') {
+            filtered = filtered.filter((item) => typeof item.progress === 'number' && item.progress > 0);
+        }
+        return filtered;
+    }, [items, model, urlParams]);
+
+    const loadNextPage = React.useCallback(() => undefined, []);
+
+    const library = React.useMemo(() => ({
+        catalog,
+        loading,
+        error,
+        selected: loading ? null : { type: urlParams !== null && typeof urlParams === 'object' ? urlParams.type || null : null },
+    }), [catalog, loading, error, urlParams]);
+
     return [library, loadNextPage];
 };
 
