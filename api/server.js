@@ -7,9 +7,10 @@ const path = require('node:path');
 const crypto = require('node:crypto');
 const { openDb } = require('./db');
 const { createSchema, seedDefaults, hashPassword, verifyPassword, SLOT_KEYS } = require('./seed');
-const { normalizeEmail, validEmail, validPassword, newToken, sha256hex, takeToken } = require('./users');
+const { normalizeEmail, validEmail, validPassword, newToken, sha256hex, takeToken, otpCode } = require('./users');
 const { resolveAvailability } = require('./availability');
 const { curlJson } = require('./curlfetch');
+const { sendMail } = require('./smtp');
 
 const BRAND_COLUMNS = ['site_name', 'tagline', 'logo_url', 'favicon_url', 'theme', 'accent'];
 const UPLOAD_EXTS = { '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.svg': 'image/svg+xml', '.ico': 'image/x-icon' };
@@ -137,6 +138,8 @@ function startServer({ port = 3001, db, uploadsDir } = {}) {
     const signupLimits = new Map();
     const loginEmailLimits = new Map();
     const loginIpLimits = new Map();
+    const otpRequestEmailLimits = new Map();
+    const otpRequestIpLimits = new Map();
     const uploads = uploadsDir || process.env.UPLOADS_DIR || path.join(__dirname, 'uploads');
     fs.mkdirSync(uploads, { recursive: true });
 
@@ -432,6 +435,97 @@ function startServer({ port = 3001, db, uploadsDir } = {}) {
                 const me = await userSession(request, db);
                 if (!me) return send(response, 401, { error: 'unauthorized' });
                 return send(response, 200, me);
+            }
+
+            if (request.method === 'POST' && url.pathname === '/api/users/password/otp/request') {
+                const body = await readJson(request, 64 * 1024);
+                const email = normalizeEmail(body.email);
+                if (!validEmail(email)) return send(response, 400, { error: 'bad input' });
+                const ip = (request.socket && request.socket.remoteAddress) || 'unknown';
+                if (
+                    !takeToken(otpRequestEmailLimits, email, 5, 3600 * 1000) ||
+                    !takeToken(otpRequestIpLimits, ip, 20, 3600 * 1000)
+                ) {
+                    return send(response, 429, { error: 'rate limited' });
+                }
+                const users = await db.query('SELECT id, disabled FROM users WHERE email = ?', [email]);
+                if (users.length === 0 || Number(users[0].disabled) !== 0) {
+                    return send(response, 200, { ok: true });
+                }
+                await db.query('UPDATE otp_codes SET consumed = 1 WHERE email = ? AND consumed = 0', [email]);
+                const code = otpCode();
+                const now = new Date();
+                await db.query(
+                    'INSERT INTO otp_codes (email, code_hash, expires_at, attempts, consumed, created_at) VALUES (?, ?, ?, 0, 0, ?)',
+                    [email, hashPassword(code), new Date(now.getTime() + 10 * 60 * 1000).toISOString(), now.toISOString()]
+                );
+                let site = 'Site';
+                try {
+                    const brand = await db.query('SELECT site_name FROM branding WHERE id = 1');
+                    if (brand.length > 0 && typeof brand[0].site_name === 'string' && brand[0].site_name) {
+                        site = brand[0].site_name;
+                    }
+                } catch {
+                    // Fall through with the default site name.
+                }
+                try {
+                    await sendMail({
+                        to: email,
+                        subject: `${site} password code`,
+                        text: `Your ${site} password code is ${code}. It expires in 10 minutes.`,
+                    });
+                } catch (error) {
+                    console.error('otp mail failed', error && error.message ? error.message : error);
+                }
+                return send(response, 200, { ok: true });
+            }
+
+            if (request.method === 'POST' && url.pathname === '/api/users/password/otp/verify') {
+                const body = await readJson(request, 64 * 1024);
+                if (!validPassword(body.password)) return send(response, 400, { error: 'bad input' });
+                const email = normalizeEmail(body.email);
+                const code = typeof body.code === 'string' ? body.code.trim() : '';
+                if (!validEmail(email) || code.length === 0) {
+                    return send(response, 401, { error: 'invalid code' });
+                }
+                const rows = await db.query(
+                    'SELECT id, code_hash, expires_at, attempts FROM otp_codes WHERE email = ? AND consumed = 0 ORDER BY id DESC LIMIT 1',
+                    [email]
+                );
+                if (rows.length === 0) return send(response, 401, { error: 'invalid code' });
+                const row = rows[0];
+                const expires = Date.parse(row.expires_at);
+                if (Number(row.attempts) >= 5) {
+                    if (!Number.isFinite(expires) || expires <= Date.now()) {
+                        return send(response, 401, { error: 'invalid code' });
+                    }
+                    return send(response, 429, { error: 'rate limited' });
+                }
+                if (!Number.isFinite(expires) || expires <= Date.now()) {
+                    await db.query('UPDATE otp_codes SET attempts = attempts + 1 WHERE id = ?', [row.id]);
+                    return send(response, 401, { error: 'invalid code' });
+                }
+                let ok = false;
+                try {
+                    ok = verifyPassword(code, row.code_hash);
+                } catch {
+                    ok = false;
+                }
+                if (!ok) {
+                    await db.query('UPDATE otp_codes SET attempts = attempts + 1 WHERE id = ?', [row.id]);
+                    return send(response, 401, { error: 'invalid code' });
+                }
+                const users = await db.query('SELECT id, disabled FROM users WHERE email = ?', [email]);
+                if (users.length === 0 || Number(users[0].disabled) !== 0) {
+                    return send(response, 401, { error: 'invalid code' });
+                }
+                await db.query('UPDATE users SET password_hash = ? WHERE id = ?', [
+                    hashPassword(body.password),
+                    users[0].id,
+                ]);
+                await db.query('UPDATE otp_codes SET consumed = 1 WHERE email = ? AND consumed = 0', [email]);
+                await db.query('DELETE FROM sessions WHERE user_id = ?', [users[0].id]);
+                return send(response, 200, { ok: true });
             }
 
             if (request.method === 'POST' && url.pathname === '/api/admin/login') {
