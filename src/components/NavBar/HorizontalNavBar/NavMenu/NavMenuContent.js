@@ -7,12 +7,8 @@ const classnames = require('classnames');
 const { useTranslation } = require('react-i18next');
 const { default: Icon } = require('stremio/components/BrandIcons');
 const { Button } = require('stremio/components');
-const { useFullscreen } = require('stremio/common/Fullscreen');
 const useLocalAuth = require('stremio/common/useLocalAuth');
 const useProfile = require('stremio/common/useProfile');
-const usePWA = require('stremio/common/usePWA');
-const { default: usePlayUrl } = require('stremio/common/usePlayUrl');
-const useToast = require('stremio/common/Toast/useToast');
 const { withCoreSuspender } = require('stremio/common/CoreSuspender');
 const useStreamingServer = require('stremio/common/useStreamingServer');
 const styles = require('./styles');
@@ -23,10 +19,6 @@ const NavMenuContent = ({ onClick }) => {
     const profile = useProfile();
     const { user: localUser, logout } = useLocalAuth();
     const streamingServer = useStreamingServer();
-    const { handlePlayUrl } = usePlayUrl();
-    const toast = useToast();
-    const [fullscreen, requestFullscreen, exitFullscreen, , supported] = useFullscreen();
-    const [, isAndroidPWA] = usePWA();
     const streamingServerWarningDismissed = React.useMemo(() => {
         return streamingServer.settings !== null && streamingServer.settings.type === 'Ready' || (
             !isNaN(profile.settings.streamingServerWarningDismissed.getTime()) &&
@@ -40,21 +32,6 @@ const NavMenuContent = ({ onClick }) => {
             // No surface for logout errors here; the session simply stays.
         });
     }, [logout, navigate]);
-    const onPlayMagnetLinkClick = React.useCallback(async () => {
-        try {
-            const clipboardText = await navigator.clipboard.readText();
-            const handled = await handlePlayUrl(clipboardText);
-            if (!handled) {
-                toast.show({
-                    type: 'error',
-                    title: 'Clipboard does not contain a valid URL or magnet link.',
-                    timeout: 5000
-                });
-            }
-        } catch(e) {
-            console.error(e);
-        }
-    }, [handlePlayUrl]);
     const handleAuth = React.useCallback(() => {
         return localUser !== null
             ? logoutButtonOnClick()
@@ -82,25 +59,10 @@ const NavMenuContent = ({ onClick }) => {
                     </Button>
                 </div>
             </div>
-            {
-                supported && !isAndroidPWA ?
-                    <div className={styles['nav-menu-section']}>
-                        <Button className={styles['nav-menu-option-container']} title={fullscreen ? t('EXIT_FULLSCREEN') : t('ENTER_FULLSCREEN')} onClick={fullscreen ? exitFullscreen : requestFullscreen}>
-                            <Icon className={styles['icon']} name={fullscreen ? 'minimize' : 'maximize'} />
-                            <div className={styles['nav-menu-option-label']}>{fullscreen ? t('EXIT_FULLSCREEN') : t('ENTER_FULLSCREEN')}</div>
-                        </Button>
-                    </div>
-                    :
-                    null
-            }
             <div className={styles['nav-menu-section']}>
                 <Button className={styles['nav-menu-option-container']} title={ t('SETTINGS') } href={'#/settings'}>
                     <Icon className={styles['icon']} name={'settings'} />
                     <div className={styles['nav-menu-option-label']}>{ t('SETTINGS') }</div>
-                </Button>
-                <Button className={styles['nav-menu-option-container']} title={ t('PLAY_URL_MAGNET_LINK') } onClick={onPlayMagnetLinkClick}>
-                    <Icon className={styles['icon']} name={'magnet-link'} />
-                    <div className={styles['nav-menu-option-label']}>{ t('PLAY_URL_MAGNET_LINK') }</div>
                 </Button>
             </div>
         </div>
