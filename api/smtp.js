@@ -83,14 +83,20 @@ async function smtpDialog(io, { from, to, subject, text, user, pass }) {
         ehlo = await io.readReply('ehlo', /^250[ -]/);
     }
     if (user) {
-        await io.write('AUTH LOGIN');
-        await io.readReply('auth', /^334[ -]/);
-        await io.write(Buffer.from(user, 'utf8').toString('base64'));
-        await io.readReply('auth-user', /^334[ -]/);
-        await io.write(Buffer.from(pass, 'utf8').toString('base64'));
-        // Real servers finish with 235; test doubles may challenge every
-        // round with another 334, which carries no further credentials.
-        await io.readReply('auth-pass', /^(235|334)([ -]|$)/);
+        if (!/AUTH[ =]LOGIN/i.test(ehlo) && /AUTH[ =]PLAIN/i.test(ehlo)) {
+            // Servers offering only PLAIN (e.g. Postfix AUTH=PLAIN).
+            await io.write(`AUTH PLAIN ${Buffer.from(`\0${user}\0${pass}`, 'utf8').toString('base64')}`);
+            await io.readReply('auth', /^235[ -]/);
+        } else {
+            await io.write('AUTH LOGIN');
+            await io.readReply('auth', /^334[ -]/);
+            await io.write(Buffer.from(user, 'utf8').toString('base64'));
+            await io.readReply('auth-user', /^334[ -]/);
+            await io.write(Buffer.from(pass, 'utf8').toString('base64'));
+            // Real servers finish with 235; test doubles may challenge every
+            // round with another 334, which carries no further credentials.
+            await io.readReply('auth-pass', /^(235|334)([ -]|$)/);
+        }
     }
     await io.write(`MAIL FROM:<${cleanFrom}>`);
     await io.readReply('mail', /^250[ -]/);
