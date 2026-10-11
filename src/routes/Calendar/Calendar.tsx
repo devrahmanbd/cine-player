@@ -3,6 +3,7 @@
 import React, { useMemo, useState } from 'react';
 import { useParams } from 'react-router';
 import { useProfile, withCoreSuspender } from 'stremio/common';
+import useLocalAuth from 'stremio/common/useLocalAuth';
 import { MainNavBars, BottomSheet } from 'stremio/components';
 import Selector from './Selector';
 import Table from './Table';
@@ -22,6 +23,7 @@ const Calendar = () => {
     }), [year, month]);
     const calendar = useCalendar(urlParams);
     const profile = useProfile();
+    const { user: localUser } = useLocalAuth();
 
     const { toDayMonth } = useCalendarDate(profile);
 
@@ -29,7 +31,7 @@ const Calendar = () => {
 
     const detailsTitle = useMemo(() => toDayMonth(selected), [selected, toDayMonth]);
 
-    const loading = calendar.metaItems.some(({ type }) => type === 'Loading');
+    const loading = calendar.loading;
 
     const onDetailsClose = () => {
         setSelected(null);
@@ -38,7 +40,7 @@ const Calendar = () => {
     return (
         <MainNavBars className={styles['calendar']} route={'calendar'}>
             {
-                profile.auth !== null ?
+                localUser !== null ?
                     <div className={classNames(styles['content'], 'animation-fade-in')}>
                         <div className={styles['main']}>
                             <Selector

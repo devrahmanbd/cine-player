@@ -3,9 +3,9 @@ import { useTranslation } from 'react-i18next';
 import { useCore } from 'stremio/core';
 import { Button, Toggle } from 'stremio/components';
 import { usePlatform, useToast, useDiscord } from 'stremio/common';
+import useLocalAuth from 'stremio/common/useLocalAuth';
 import { Section, Option, Link } from '../components';
 import User from './User';
-import useDataExport from './useDataExport';
 import styles from './General.less';
 
 type Props = {
@@ -18,7 +18,7 @@ const General = forwardRef<HTMLDivElement, Props>(({ profile }: Props, ref) => {
     const platform = usePlatform();
     const toast = useToast();
     const discord = useDiscord();
-    const [dataExport, loadDataExport] = useDataExport();
+    const { user: localUser } = useLocalAuth();
 
     const [traktAuthStarted, setTraktAuthStarted] = useState(false);
 
@@ -28,7 +28,32 @@ const General = forwardRef<HTMLDivElement, Props>(({ profile }: Props, ref) => {
     }, [profile.auth]);
 
     const onExportData = useCallback(() => {
-        loadDataExport();
+        Promise.all([
+            fetch('/api/users/library', { credentials: 'same-origin' }),
+            fetch('/api/users/progress', { credentials: 'same-origin' }),
+        ]).then(async ([libraryResponse, progressResponse]) => {
+            if (!libraryResponse.ok || !progressResponse.ok) {
+                return;
+            }
+            const library = await libraryResponse.json();
+            const progress = await progressResponse.json();
+            const payload = {
+                exportedAt: new Date().toISOString(),
+                library,
+                progress,
+            };
+            const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const anchor = document.createElement('a');
+            anchor.href = url;
+            anchor.download = 'linuxstream-library.json';
+            document.body.appendChild(anchor);
+            anchor.click();
+            anchor.remove();
+            URL.revokeObjectURL(url);
+        }).catch(() => {
+            // Fail-open: the export stays a no-op when the local endpoints are unreachable.
+        });
     }, []);
 
     const onCalendarSubscribe = useCallback(() => {
@@ -79,12 +104,6 @@ const General = forwardRef<HTMLDivElement, Props>(({ profile }: Props, ref) => {
     }), [profile.settings]);
 
     useEffect(() => {
-        if (dataExport.exportUrl) {
-            platform.openExternal(dataExport.exportUrl);
-        }
-    }, [dataExport.exportUrl]);
-
-    useEffect(() => {
         if (isTraktAuthenticated && traktAuthStarted) {
             core.transport.dispatch({
                 action: 'Ctx',
@@ -103,7 +122,7 @@ const General = forwardRef<HTMLDivElement, Props>(({ profile }: Props, ref) => {
 
         <Section>
             {
-                profile?.auth?.user &&
+                localUser !== null &&
                     <Link
                         label={t('SETTINGS_DATA_EXPORT')}
                         onClick={onExportData}
