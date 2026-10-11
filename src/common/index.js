@@ -18,6 +18,7 @@ const useAnimationFrame = require('./useAnimationFrame');
 const useBinaryState = require('./useBinaryState');
 const { default: useInterval } = require('./useInterval');
 const useLiveRef = require('./useLiveRef');
+const useLocalAuth = require('./useLocalAuth');
 const useModelState = require('./useModelState');
 const useNotifications = require('./useNotifications');
 const useOnScrollToBottom = require('./useOnScrollToBottom');
@@ -66,6 +67,7 @@ module.exports = {
     useFullscreen,
     useInterval,
     useLiveRef,
+    useLocalAuth,
     useModelState,
     useNotifications,
     useOnScrollToBottom,

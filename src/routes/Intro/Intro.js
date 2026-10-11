@@ -6,41 +6,46 @@ const { useSearchParams, useNavigate } = require('react-router-dom');
 const classnames = require('classnames');
 const { default: Icon } = require('stremio/components/BrandIcons');
 const Modal = require('stremio/router/Modal');
-const { useCore } = require('stremio/core');
-const { useBinaryState } = require('stremio/common');
+const { useBinaryState, useLocalAuth } = require('stremio/common');
 const { default: useRouteFocused } = require('stremio/common/useRouteFocused');
 const { Button, Image, Checkbox } = require('stremio/components');
 const CredentialsTextInput = require('./CredentialsTextInput');
-const PasswordResetModal = require('./PasswordResetModal');
 const { useBranding } = require('stremio/branding/BrandingContext');
-const useFacebookLogin = require('./useFacebookLogin');
-const { default: useAppleLogin } = require('./useAppleLogin');
 
 const styles = require('./styles');
 
 const SIGNUP_FORM = 'signup';
 const LOGIN_FORM = 'login';
+const OTP_REQUEST_VIEW = 'request';
+const OTP_CONFIRM_VIEW = 'confirm';
 
 const STOCK_LOGO = '/brand/logo.svg';
 
 const Intro = () => {
     const [queryParams, setQueryParams] = useSearchParams();
     const navigate = useNavigate();
-    const core = useCore();
     const { t } = useTranslation();
     const { brand } = useBranding();
     const logoSrc = typeof brand.logo_url === 'string' && brand.logo_url.length > 0 ? brand.logo_url : STOCK_LOGO;
     const routeFocused = useRouteFocused();
-    const [startFacebookLogin, stopFacebookLogin] = useFacebookLogin();
-    const [startAppleLogin, stopAppleLogin] = useAppleLogin();
+    const {
+        user: localUser,
+        loading: authLoading,
+        signup: authSignup,
+        login: authLogin,
+        requestOtp: authRequestOtp,
+        confirmOtp: authConfirmOtp
+    } = useLocalAuth();
     const emailRef = React.useRef(null);
     const passwordRef = React.useRef(null);
     const confirmPasswordRef = React.useRef(null);
+    const otpCodeRef = React.useRef(null);
+    const otpPasswordRef = React.useRef(null);
+    const otpConfirmPasswordRef = React.useRef(null);
     const termsRef = React.useRef(null);
     const privacyPolicyRef = React.useRef(null);
     const marketingRef = React.useRef(null);
     const errorRef = React.useRef(null);
-    const [passwordRestModalOpen, openPasswordRestModal, closePasswordResetModal] = useBinaryState(false);
     const [loaderModalOpen, openLoaderModal, closeLoaderModal] = useBinaryState(false);
     const [state, dispatch] = React.useReducer(
         (state, action) => {
@@ -55,10 +60,20 @@ const Intro = () => {
                             termsAccepted: false,
                             privacyPolicyAccepted: false,
                             marketingAccepted: false,
+                            otp: null,
+                            code: '',
+                            newPassword: '',
+                            confirmNewPassword: '',
                             error: ''
                         };
                     }
                     return state;
+                case 'show-otp':
+                    return {
+                        ...state,
+                        otp: action.otp,
+                        error: ''
+                    };
                 case 'change-credentials':
                     return {
                         ...state,
@@ -88,59 +103,13 @@ const Intro = () => {
             termsAccepted: false,
             privacyPolicyAccepted: false,
             marketingAccepted: false,
+            otp: null,
+            code: '',
+            newPassword: '',
+            confirmNewPassword: '',
             error: ''
         }
     );
-    const loginWithFacebook = React.useCallback(() => {
-        openLoaderModal();
-        startFacebookLogin()
-            .then(({ email, password }) => {
-                core.transport.dispatch({
-                    action: 'Ctx',
-                    args: {
-                        action: 'Authenticate',
-                        args: {
-                            type: 'Login',
-                            email,
-                            password,
-                            facebook: true
-                        }
-                    }
-                });
-            })
-            .catch((error) => {
-                closeLoaderModal();
-                dispatch({ type: 'error', error: error.message });
-            });
-    }, [startFacebookLogin, openLoaderModal, closeLoaderModal]);
-    const loginWithApple = React.useCallback(() => {
-        openLoaderModal();
-        startAppleLogin()
-            .then(({ token, sub, email, name }) => {
-                core.transport.dispatch({
-                    action: 'Ctx',
-                    args: {
-                        action: 'Authenticate',
-                        args: {
-                            type: 'Apple',
-                            token,
-                            sub,
-                            email,
-                            name
-                        }
-                    }
-                });
-            })
-            .catch((error) => {
-                closeLoaderModal();
-                dispatch({ type: 'error', error: error.message });
-            });
-    }, [startAppleLogin, openLoaderModal, closeLoaderModal]);
-    const cancelSocialLogin = React.useCallback(() => {
-        stopFacebookLogin();
-        stopAppleLogin();
-        closeLoaderModal();
-    }, [stopFacebookLogin, stopAppleLogin, closeLoaderModal]);
     const loginWithEmail = React.useCallback(() => {
         if (typeof state.email !== 'string' || state.email.length === 0 || !emailRef.current.validity.valid) {
             dispatch({ type: 'error', error: t('INVALID_EMAIL') });
@@ -150,26 +119,10 @@ const Intro = () => {
             dispatch({ type: 'error', error: t('INVALID_PASSWORD') });
             return;
         }
-        openLoaderModal();
-        core.transport.dispatch({
-            action: 'Ctx',
-            args: {
-                action: 'Authenticate',
-                args: {
-                    type: 'Login',
-                    email: state.email,
-                    password: state.password
-                }
-            }
+        authLogin(state.email, state.password).catch((error) => {
+            dispatch({ type: 'error', error: error.message });
         });
-    }, [state.email, state.password]);
-    const loginAsGuest = React.useCallback(() => {
-        if (!state.termsAccepted) {
-            dispatch({ type: 'error', error: t('MUST_ACCEPT_TERMS') });
-            return;
-        }
-        navigate('/');
-    }, [state.termsAccepted]);
+    }, [state.email, state.password, authLogin, t]);
     const signup = React.useCallback(() => {
         if (typeof state.email !== 'string' || state.email.length === 0 || !emailRef.current.validity.valid) {
             dispatch({ type: 'error', error: t('INVALID_EMAIL') });
@@ -191,25 +144,42 @@ const Intro = () => {
             dispatch({ type: 'error', error: t('MUST_ACCEPT_PRIVACY_POLICY') });
             return;
         }
-        openLoaderModal();
-        core.transport.dispatch({
-            action: 'Ctx',
-            args: {
-                action: 'Authenticate',
-                args: {
-                    type: 'Register',
-                    email: state.email,
-                    password: state.password,
-                    gdpr_consent: {
-                        tos: state.termsAccepted,
-                        privacy: state.privacyPolicyAccepted,
-                        marketing: state.marketingAccepted,
-                        from: 'web'
-                    }
-                }
-            }
+        authSignup(state.email, state.password).catch((error) => {
+            dispatch({ type: 'error', error: error.message });
         });
-    }, [state.email, state.password, state.confirmPassword, state.termsAccepted, state.privacyPolicyAccepted, state.marketingAccepted]);
+    }, [state.email, state.password, state.confirmPassword, state.termsAccepted, state.privacyPolicyAccepted, authSignup, t]);
+    const openForgotPassword = React.useCallback(() => {
+        dispatch({ type: 'show-otp', otp: OTP_REQUEST_VIEW });
+    }, []);
+    const backFromOtp = React.useCallback(() => {
+        dispatch({ type: 'show-otp', otp: state.otp === OTP_CONFIRM_VIEW ? OTP_REQUEST_VIEW : null });
+    }, [state.otp]);
+    const submitOtpRequest = React.useCallback(() => {
+        if (typeof state.email !== 'string' || state.email.length === 0 || !emailRef.current.validity.valid) {
+            dispatch({ type: 'error', error: t('INVALID_EMAIL') });
+            return;
+        }
+        authRequestOtp(state.email).then(() => {
+            dispatch({ type: 'show-otp', otp: OTP_CONFIRM_VIEW });
+        }).catch((error) => {
+            dispatch({ type: 'error', error: error.message });
+        });
+    }, [state.email, authRequestOtp, t]);
+    const submitOtpConfirm = React.useCallback(() => {
+        if (typeof state.newPassword !== 'string' || state.newPassword.length === 0) {
+            dispatch({ type: 'error', error: t('INVALID_PASSWORD') });
+            return;
+        }
+        if (state.newPassword !== state.confirmNewPassword) {
+            dispatch({ type: 'error', error: t('PASSWORDS_NOMATCH') });
+            return;
+        }
+        authConfirmOtp(state.email, state.code, state.newPassword).then(() => {
+            dispatch({ type: 'show-otp', otp: null });
+        }).catch((error) => {
+            dispatch({ type: 'error', error: error.message });
+        });
+    }, [state.email, state.code, state.newPassword, state.confirmNewPassword, authConfirmOtp, t]);
     const emailOnChange = React.useCallback((event) => {
         dispatch({
             type: 'change-credentials',
@@ -220,6 +190,9 @@ const Intro = () => {
     const emailOnSubmit = React.useCallback(() => {
         passwordRef.current.focus();
     }, []);
+    const otpEmailOnSubmit = React.useCallback(() => {
+        submitOtpRequest();
+    }, [submitOtpRequest]);
     const passwordOnChange = React.useCallback((event) => {
         dispatch({
             type: 'change-credentials',
@@ -244,6 +217,36 @@ const Intro = () => {
     const confirmPasswordOnSubmit = React.useCallback(() => {
         termsRef.current.focus();
     }, []);
+    const codeOnChange = React.useCallback((event) => {
+        dispatch({
+            type: 'change-credentials',
+            name: 'code',
+            value: event.currentTarget.value
+        });
+    }, []);
+    const codeOnSubmit = React.useCallback(() => {
+        otpPasswordRef.current.focus();
+    }, []);
+    const newPasswordOnChange = React.useCallback((event) => {
+        dispatch({
+            type: 'change-credentials',
+            name: 'newPassword',
+            value: event.currentTarget.value
+        });
+    }, []);
+    const newPasswordOnSubmit = React.useCallback(() => {
+        otpConfirmPasswordRef.current.focus();
+    }, []);
+    const confirmNewPasswordOnChange = React.useCallback((event) => {
+        dispatch({
+            type: 'change-credentials',
+            name: 'confirmNewPassword',
+            value: event.currentTarget.value
+        });
+    }, []);
+    const confirmNewPasswordOnSubmit = React.useCallback(() => {
+        submitOtpConfirm();
+    }, [submitOtpConfirm]);
     const toggleTermsAccepted = React.useCallback(() => {
         dispatch({ type: 'toggle-checkbox', name: 'termsAccepted' });
     }, []);
@@ -256,7 +259,7 @@ const Intro = () => {
     const switchFormOnClick = React.useCallback(() => {
         const queryParams = new URLSearchParams([['form', state.form === SIGNUP_FORM ? LOGIN_FORM : SIGNUP_FORM]]);
         setQueryParams(queryParams);
-    }, [state.form]);
+    }, [state.form, setQueryParams]);
     React.useEffect(() => {
         if ([LOGIN_FORM, SIGNUP_FORM].includes(queryParams.get('form'))) {
             dispatch({ type: 'set-form', form: queryParams.get('form') });
@@ -269,30 +272,25 @@ const Intro = () => {
     }, [state.error]);
     React.useEffect(() => {
         if (routeFocused) {
-            emailRef.current.focus();
+            if (state.otp === OTP_CONFIRM_VIEW && otpCodeRef.current !== null) {
+                otpCodeRef.current.focus();
+            } else if (emailRef.current !== null) {
+                emailRef.current.focus();
+            }
         }
-    }, [state.form, routeFocused]);
+    }, [state.form, state.otp, routeFocused]);
     React.useEffect(() => {
-        const onCoreEvent = (name) => {
-            if (name === 'UserAuthenticated') {
-                closeLoaderModal();
-                if (routeFocused) {
-                    navigate('/');
-                }
-            }
-        };
-        const onCoreError = (source) => {
-            if (source.event === 'UserAuthenticated') {
-                closeLoaderModal();
-            }
-        };
-        core.on('event', onCoreEvent);
-        core.on('error', onCoreError);
-        return () => {
-            core.off('event', onCoreEvent);
-            core.off('error', onCoreError);
-        };
-    }, [routeFocused]);
+        if (authLoading) {
+            openLoaderModal();
+        } else {
+            closeLoaderModal();
+        }
+    }, [authLoading, openLoaderModal, closeLoaderModal]);
+    React.useEffect(() => {
+        if (localUser !== null && routeFocused) {
+            navigate('/');
+        }
+    }, [localUser, routeFocused, navigate]);
     return (
         <div className={styles['intro-container']}>
             <div className={styles['background-container']} />
@@ -309,120 +307,176 @@ const Intro = () => {
             </div>
             <div className={styles['content-container']}>
                 <div className={styles['form-container']}>
-                    <CredentialsTextInput
-                        ref={emailRef}
-                        className={styles['credentials-text-input']}
-                        type={'email'}
-                        placeholder={t('EMAIL')}
-                        value={state.email}
-                        onChange={emailOnChange}
-                        onSubmit={emailOnSubmit}
-                    />
-                    <CredentialsTextInput
-                        ref={passwordRef}
-                        className={styles['credentials-text-input']}
-                        type={'password'}
-                        placeholder={t('PASSWORD')}
-                        value={state.password}
-                        onChange={passwordOnChange}
-                        onSubmit={passwordOnSubmit}
-                    />
                     {
-                        state.form === SIGNUP_FORM ?
+                        state.otp === OTP_REQUEST_VIEW ?
                             <React.Fragment>
+                                <div className={styles['otp-title']}>{t('PASSWORD_RESET')}</div>
                                 <CredentialsTextInput
-                                    ref={confirmPasswordRef}
+                                    ref={emailRef}
                                     className={styles['credentials-text-input']}
-                                    type={'password'}
-                                    placeholder={t('PASSWORD_CONFIRM')}
-                                    value={state.confirmPassword}
-                                    onChange={confirmPasswordOnChange}
-                                    onSubmit={confirmPasswordOnSubmit}
+                                    type={'email'}
+                                    placeholder={t('EMAIL')}
+                                    value={state.email}
+                                    onChange={emailOnChange}
+                                    onSubmit={otpEmailOnSubmit}
                                 />
-                                <Checkbox
-                                    ref={termsRef}
-                                    label={t('READ_AND_AGREE')}
-                                    checked={state.termsAccepted}
-                                    onChange={toggleTermsAccepted}
-                                />
-                                <Checkbox
-                                    ref={privacyPolicyRef}
-                                    label={t('READ_AND_AGREE')}
-                                    checked={state.privacyPolicyAccepted}
-                                    onChange={togglePrivacyPolicyAccepted}
-                                />
-                                <Checkbox
-                                    ref={marketingRef}
-                                    label={t('MARKETING_AGREE')}
-                                    checked={state.marketingAccepted}
-                                    onChange={toggleMarketingAccepted}
-                                />
+                                {
+                                    state.error && state.error.length > 0 ?
+                                        <div ref={errorRef} className={styles['error-message']}>{state.error}</div>
+                                        :
+                                        null
+                                }
+                                <Button className={classnames(styles['form-button'], styles['submit-button'])} onClick={submitOtpRequest}>
+                                    <div className={styles['label']}>{t('BUTTON_SEND')}</div>
+                                </Button>
+                                <Button className={classnames(styles['form-button'], styles['login-form-button'])} onClick={backFromOtp}>
+                                    <div className={styles['label']}>{t('BACK')}</div>
+                                </Button>
                             </React.Fragment>
                             :
-                            <div className={styles['forgot-password-link-container']}>
-                                <Button className={styles['forgot-password-link']} onClick={openPasswordRestModal}>{t('FORGOT_PASSWORD')}</Button>
-                            </div>
+                            state.otp === OTP_CONFIRM_VIEW ?
+                                <React.Fragment>
+                                    <div className={styles['otp-title']}>{t('PASSWORD_RESET')}</div>
+                                    <div className={styles['otp-message']}>{t('WEBSITE_RESET_PASSWORD_MESSAGE')}</div>
+                                    <CredentialsTextInput
+                                        ref={otpCodeRef}
+                                        className={styles['credentials-text-input']}
+                                        type={'text'}
+                                        autoComplete={'one-time-code'}
+                                        inputMode={'numeric'}
+                                        value={state.code}
+                                        onChange={codeOnChange}
+                                        onSubmit={codeOnSubmit}
+                                    />
+                                    <CredentialsTextInput
+                                        ref={otpPasswordRef}
+                                        className={styles['credentials-text-input']}
+                                        type={'password'}
+                                        placeholder={t('WEBSITE_NEW_PASSWORD')}
+                                        value={state.newPassword}
+                                        onChange={newPasswordOnChange}
+                                        onSubmit={newPasswordOnSubmit}
+                                    />
+                                    <CredentialsTextInput
+                                        ref={otpConfirmPasswordRef}
+                                        className={styles['credentials-text-input']}
+                                        type={'password'}
+                                        placeholder={t('WEBSITE_REPEAT_NEW_PASSWORD')}
+                                        value={state.confirmNewPassword}
+                                        onChange={confirmNewPasswordOnChange}
+                                        onSubmit={confirmNewPasswordOnSubmit}
+                                    />
+                                    {
+                                        state.error && state.error.length > 0 ?
+                                            <div ref={errorRef} className={styles['error-message']}>{state.error}</div>
+                                            :
+                                            null
+                                    }
+                                    <Button className={classnames(styles['form-button'], styles['submit-button'])} onClick={submitOtpConfirm}>
+                                        <div className={styles['label']}>{t('BUTTON_CONFIRM')}</div>
+                                    </Button>
+                                    <Button className={classnames(styles['form-button'], styles['login-form-button'])} onClick={backFromOtp}>
+                                        <div className={styles['label']}>{t('BACK')}</div>
+                                    </Button>
+                                </React.Fragment>
+                                :
+                                <React.Fragment>
+                                    <CredentialsTextInput
+                                        ref={emailRef}
+                                        className={styles['credentials-text-input']}
+                                        type={'email'}
+                                        placeholder={t('EMAIL')}
+                                        value={state.email}
+                                        onChange={emailOnChange}
+                                        onSubmit={emailOnSubmit}
+                                    />
+                                    <CredentialsTextInput
+                                        ref={passwordRef}
+                                        className={styles['credentials-text-input']}
+                                        type={'password'}
+                                        placeholder={t('PASSWORD')}
+                                        value={state.password}
+                                        onChange={passwordOnChange}
+                                        onSubmit={passwordOnSubmit}
+                                    />
+                                    {
+                                        state.form === SIGNUP_FORM ?
+                                            <React.Fragment>
+                                                <CredentialsTextInput
+                                                    ref={confirmPasswordRef}
+                                                    className={styles['credentials-text-input']}
+                                                    type={'password'}
+                                                    placeholder={t('PASSWORD_CONFIRM')}
+                                                    value={state.confirmPassword}
+                                                    onChange={confirmPasswordOnChange}
+                                                    onSubmit={confirmPasswordOnSubmit}
+                                                />
+                                                <Checkbox
+                                                    ref={termsRef}
+                                                    label={t('READ_AND_AGREE')}
+                                                    checked={state.termsAccepted}
+                                                    onChange={toggleTermsAccepted}
+                                                />
+                                                <Checkbox
+                                                    ref={privacyPolicyRef}
+                                                    label={t('READ_AND_AGREE')}
+                                                    checked={state.privacyPolicyAccepted}
+                                                    onChange={togglePrivacyPolicyAccepted}
+                                                />
+                                                <Checkbox
+                                                    ref={marketingRef}
+                                                    label={t('MARKETING_AGREE')}
+                                                    checked={state.marketingAccepted}
+                                                    onChange={toggleMarketingAccepted}
+                                                />
+                                            </React.Fragment>
+                                            :
+                                            <div className={styles['forgot-password-link-container']}>
+                                                <Button className={styles['forgot-password-link']} onClick={openForgotPassword}>{t('FORGOT_PASSWORD')}</Button>
+                                            </div>
+                                    }
+                                    {
+                                        state.error && state.error.length > 0 ?
+                                            <div ref={errorRef} className={styles['error-message']}>{state.error}</div>
+                                            :
+                                            null
+                                    }
+                                    <Button className={classnames(styles['form-button'], styles['submit-button'])} onClick={state.form === SIGNUP_FORM ? signup : loginWithEmail}>
+                                        <div className={styles['label']}>{state.form === SIGNUP_FORM ? t('SIGN_UP') : t('LOG_IN')}</div>
+                                    </Button>
+                                </React.Fragment>
                     }
-                    {
-                        state.error && state.error.length > 0 ?
-                            <div ref={errorRef} className={styles['error-message']}>{state.error}</div>
-                            :
-                            null
-                    }
-                    <Button className={classnames(styles['form-button'], styles['submit-button'])} onClick={state.form === SIGNUP_FORM ? signup : loginWithEmail}>
-                        <div className={styles['label']}>{state.form === SIGNUP_FORM ? t('SIGN_UP') : t('LOG_IN')}</div>
-                    </Button>
                 </div>
-                <div className={styles['options-container']}>
-                    <Button className={classnames(styles['form-button'], styles['facebook-button'])} onClick={loginWithFacebook}>
-                        <Icon className={styles['icon']} name={'facebook'} />
-                        <div className={styles['label']}>{t('FB_LOGIN')}</div>
-                    </Button>
-                    <Button className={classnames(styles['form-button'], styles['apple-button'])} onClick={loginWithApple}>
-                        <Icon className={styles['icon']} name={'macos'} />
-                        <div className={styles['label']}>{t('APPLE_LOGIN')}</div>
-                    </Button>
-                    {
-                        state.form === SIGNUP_FORM ?
-                            <Button className={classnames(styles['form-button'], styles['login-form-button'])} onClick={switchFormOnClick}>
-                                <div className={styles['label']}>{t('LOG_IN')}</div>
-                            </Button>
-                            :
-                            null
-                    }
-                    {
-                        state.form === LOGIN_FORM ?
-                            <Button className={classnames(styles['form-button'], styles['signup-form-button'])} onClick={switchFormOnClick}>
-                                <div className={styles['label']}>{t('SIGN_UP_EMAIL')}</div>
-                            </Button>
-                            :
-                            null
-                    }
-                    {
-                        state.form === SIGNUP_FORM ?
-                            <Button className={classnames(styles['form-button'], styles['guest-login-button'])} onClick={loginAsGuest}>
-                                <div className={styles['label']}>{t('GUEST_LOGIN')}</div>
-                            </Button>
-                            :
-                            null
-                    }
-                </div>
+                {
+                    state.otp === null ?
+                        <div className={styles['options-container']}>
+                            {
+                                state.form === SIGNUP_FORM ?
+                                    <Button className={classnames(styles['form-button'], styles['login-form-button'])} onClick={switchFormOnClick}>
+                                        <div className={styles['label']}>{t('LOG_IN')}</div>
+                                    </Button>
+                                    :
+                                    null
+                            }
+                            {
+                                state.form === LOGIN_FORM ?
+                                    <Button className={classnames(styles['form-button'], styles['signup-form-button'])} onClick={switchFormOnClick}>
+                                        <div className={styles['label']}>{t('SIGN_UP_EMAIL')}</div>
+                                    </Button>
+                                    :
+                                    null
+                            }
+                        </div>
+                        :
+                        null
+                }
             </div>
-            {
-                passwordRestModalOpen ?
-                    <PasswordResetModal email={state.email} onCloseRequest={closePasswordResetModal} />
-                    :
-                    null
-            }
             {
                 loaderModalOpen ?
                     <Modal className={styles['loading-modal-container']}>
                         <div className={styles['loader-container']}>
                             <Icon className={styles['icon']} name={'person'} />
                             <div className={styles['label']}>{t('AUTHENTICATING')}</div>
-                            <Button className={styles['button']} onClick={cancelSocialLogin}>
-                                {t('BUTTON_CANCEL')}
-                            </Button>
                         </div>
                     </Modal>
                     :
