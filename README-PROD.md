@@ -102,3 +102,18 @@ set `DB_DRIVER=mysql` + `MYSQL_DSN`/`MYSQL_ROOT_PASSWORD` in `.env` and add
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.prod.yml --profile mysql up -d --build
 ```
+
+## 6. Mirroring for a new brand/domain
+
+One command scaffolds a mirror (see `sh scripts/mirror.sh --help`):
+
+```bash
+sh scripts/mirror.sh example.com   # writes .env.example.com (mode 600), prints next steps
+```
+
+Then: point the DNS `A` record at the VPS, fill `ADMIN_PASSWORD` in
+`.env.example.com` (`openssl rand -base64 24`), `npm run build`,
+`docker compose --env-file .env.example.com -f docker-compose.yml -f docker-compose.prod.yml up -d --build`,
+get the new domain re-approved in Adsterra (codes are domain-bound, see
+`api/seed.js` `DEFAULT_CODES`), re-add addons + logo at
+`https://example.com/#/admin`, and verify with `npm run deploy`.

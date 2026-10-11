@@ -179,6 +179,18 @@ function probeFetch(url, timeoutMs) {
         .catch(() => true);
 }
 
+// Pure quorum aggregation (unit-tested): flat per-probe results (3 redundant
+// probes per NET_PROBES entry, in job order) -> net boolean. A family counts
+// as failed if any of its 3 probes fails; net=true only when >= 2 of the 3
+// host families fail, so a single slow probe alone cannot flip the verdict.
+function aggregateNetworkQuorum(results) {
+    let familiesFailed = 0;
+    for (let i = 0; i < NET_PROBES.length; i++) {
+        if (results.slice(i * 3, i * 3 + 3).some(Boolean)) familiesFailed += 1;
+    }
+    return familiesFailed >= 2;
+}
+
 function runNetworkProbes(timeoutMs) {
     const jobs = [];
     // Probe scripts can throw at load (hostile stubs that ReferenceError on
@@ -211,7 +223,7 @@ function runNetworkProbes(timeoutMs) {
     }
     return Promise.all(jobs).then((results) => {
         release();
-        return results.some(Boolean);
+        return aggregateNetworkQuorum(results);
     });
 }
 
@@ -290,4 +302,4 @@ function stopWatch() {
     }
 }
 
-module.exports = { detectAdblock, getAdblockStatus, getAdblockKind, watchAdblock, classifyAdblock };
+module.exports = { detectAdblock, getAdblockStatus, getAdblockKind, watchAdblock, classifyAdblock, aggregateNetworkQuorum };

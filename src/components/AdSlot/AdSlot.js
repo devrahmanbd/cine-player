@@ -40,12 +40,34 @@ const AdSlot = ({ slot, className }) => {
         if (!container) return undefined;
         container.replaceChildren();
         if (!active) return undefined;
-        try {
-            appendCode(container, code);
-        } catch {
-            container.replaceChildren();
+        let fired = false;
+        const inject = () => {
+            if (fired) return;
+            fired = true;
+            try {
+                appendCode(container, code);
+            } catch {
+                container.replaceChildren();
+            }
+        };
+        if (typeof IntersectionObserver === 'undefined') {
+            inject();
+            return () => container.replaceChildren();
         }
-        return () => container.replaceChildren();
+        const observer = new IntersectionObserver((entries) => {
+            for (const entry of entries) {
+                if (entry.isIntersecting) {
+                    inject();
+                    observer.disconnect();
+                    break;
+                }
+            }
+        }, { rootMargin: '200px' });
+        observer.observe(container);
+        return () => {
+            observer.disconnect();
+            container.replaceChildren();
+        };
     }, [active, code, slot]);
 
     if (!active) return null;

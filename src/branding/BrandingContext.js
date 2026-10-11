@@ -202,7 +202,7 @@ const BrandingProvider = ({ children }) => {
 
     return (
         <BrandingContext.Provider value={state}>
-            <AdblockWall mode={adblockMode} onDismiss={() => setWallDismissed(true)} />
+            <AdblockWall mode={wallDismissed && adblockMode === 'notice' ? 'none' : adblockMode} onDismiss={() => setWallDismissed(true)} />
             <ErrorBoundary name="brand-children">{children}</ErrorBoundary>
         </BrandingContext.Provider>
     );
