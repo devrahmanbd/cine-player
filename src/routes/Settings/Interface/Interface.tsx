@@ -1,6 +1,6 @@
 import React, { forwardRef } from 'react';
 import { usePlatform } from 'stremio/common';
-import { Scale, MultiselectMenu, Toggle } from 'stremio/components';
+import { Scale, Toggle } from 'stremio/components';
 import { Section, Option } from '../components';
 import useInterfaceOptions from './useInterfaceOptions';
 
@@ -12,7 +12,6 @@ const Interface = forwardRef<HTMLDivElement, Props>(({ profile }: Props, ref) =>
     const { shell } = usePlatform();
 
     const {
-        interfaceLanguageSelect,
         interfaceSize,
         quitOnCloseToggle,
         escExitFullscreenToggle,
@@ -22,12 +21,6 @@ const Interface = forwardRef<HTMLDivElement, Props>(({ profile }: Props, ref) =>
 
     return (
         <Section ref={ref} label={'INTERFACE'}>
-            <Option label={'SETTINGS_UI_LANGUAGE'}>
-                <MultiselectMenu
-                    className={'multiselect'}
-                    {...interfaceLanguageSelect}
-                />
-            </Option>
             <Option label={'SETTINGS_UI_ZOOM'}>
                 <Scale {...interfaceSize} />
             </Option>

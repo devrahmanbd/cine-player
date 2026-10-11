@@ -105,9 +105,9 @@ const App = () => {
     }, [services]);
 
     React.useEffect(() => {
-        if (typeof profile.settings?.interfaceLanguage === 'string') {
-            i18n.changeLanguage(profile.settings.interfaceLanguage);
-        }
+        // English-only UI: the translations backend ships en-US exclusively
+        // (language picker removed), so the profile language is ignored.
+        i18n.changeLanguage('en-US');
 
         if (typeof profile.settings?.gamepadSupport === 'boolean') {
             setGamepadSupportEnabled(profile.settings.gamepadSupport);
