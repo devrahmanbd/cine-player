@@ -6,7 +6,8 @@ const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const { openDb } = require('./db');
-const { createSchema, seedDefaults, verifyPassword, SLOT_KEYS } = require('./seed');
+const { createSchema, seedDefaults, hashPassword, verifyPassword, SLOT_KEYS } = require('./seed');
+const { normalizeEmail, validEmail, validPassword, newToken, sha256hex, takeToken } = require('./users');
 const { resolveAvailability } = require('./availability');
 const { curlJson } = require('./curlfetch');
 
@@ -92,10 +93,50 @@ function parseBlockedPatternId(pathname) {
     return id;
 }
 
+function userSessionCookie(token) {
+    return `user_session=${token}; HttpOnly; Path=/; SameSite=Lax; Max-Age=2592000`;
+}
+
+const USER_SESSION_TTL_MS = 30 * 24 * 3600 * 1000;
+const USER_SESSION_SLIDE_MS = 7 * 24 * 3600 * 1000;
+
+// Cookie session lookup: unexpired sessions row joined to an enabled user.
+// Returns { id, email } or null. Never throws.
+async function userSession(request, db) {
+    try {
+        const token = parseCookies(request.headers.cookie).user_session || '';
+        if (!/^[0-9a-f]{64}$/.test(token)) return null;
+        const tokenHash = sha256hex(token);
+        const rows = await db.query(
+            'SELECT sessions.expires_at AS expires_at, users.id AS id, users.email AS email FROM sessions JOIN users ON users.id = sessions.user_id WHERE sessions.token_hash = ? AND users.disabled = 0',
+            [tokenHash]
+        );
+        if (rows.length === 0) return null;
+        const expires = Date.parse(rows[0].expires_at);
+        if (!Number.isFinite(expires) || expires <= Date.now()) {
+            await db.query('DELETE FROM sessions WHERE token_hash = ?', [tokenHash]);
+            return null;
+        }
+        if (expires - Date.now() < USER_SESSION_SLIDE_MS) {
+            await db.query('UPDATE sessions SET expires_at = ? WHERE token_hash = ?', [
+                new Date(Date.now() + USER_SESSION_TTL_MS).toISOString(),
+                tokenHash,
+            ]);
+        }
+        return { id: rows[0].id, email: rows[0].email };
+    } catch {
+        return null;
+    }
+}
+
 function startServer({ port = 3001, db, uploadsDir } = {}) {
     const sessions = new Map();
     // Single-instance sessions: in-memory Map (restart logs admins out).
     // Past 1 replica needs sticky sessions or a shared store.
+    // Per-key fixed-window limiters for user auth (same takeToken helper).
+    const signupLimits = new Map();
+    const loginEmailLimits = new Map();
+    const loginIpLimits = new Map();
     const uploads = uploadsDir || process.env.UPLOADS_DIR || path.join(__dirname, 'uploads');
     fs.mkdirSync(uploads, { recursive: true });
 
@@ -301,6 +342,98 @@ function startServer({ port = 3001, db, uploadsDir } = {}) {
                 return send(response, 200, { ok: true });
             }
 
+            if (request.method === 'POST' && url.pathname === '/api/users/signup') {
+                const ip = (request.socket && request.socket.remoteAddress) || 'unknown';
+                if (!takeToken(signupLimits, ip, 10, 3600 * 1000)) {
+                    return send(response, 429, { error: 'rate limited' });
+                }
+                const body = await readJson(request, 64 * 1024);
+                const email = normalizeEmail(body.email);
+                if (!validEmail(email) || !validPassword(body.password)) {
+                    return send(response, 400, { error: 'bad input' });
+                }
+                const existing = await db.query('SELECT id FROM users WHERE email = ?', [email]);
+                if (existing.length > 0) return send(response, 409, { error: 'email taken' });
+                let userId;
+                try {
+                    const info = await db.query(
+                        'INSERT INTO users (email, password_hash, disabled, created_at) VALUES (?, ?, 0, ?)',
+                        [email, hashPassword(body.password), new Date().toISOString()]
+                    );
+                    userId = Number(info && (info.lastInsertRowid ?? info.insertId));
+                } catch (error) {
+                    if (/UNIQUE|unique|duplicate|ER_DUP_ENTRY/i.test(error.message || '')) {
+                        return send(response, 409, { error: 'email taken' });
+                    }
+                    throw error;
+                }
+                if (!Number.isInteger(userId) || userId <= 0) {
+                    const rows = await db.query('SELECT id FROM users WHERE email = ?', [email]);
+                    if (rows.length === 0) return send(response, 500, { error: 'server error' });
+                    userId = rows[0].id;
+                }
+                const token = newToken();
+                await db.query(
+                    'INSERT INTO sessions (token_hash, user_id, expires_at, created_at) VALUES (?, ?, ?, ?)',
+                    [
+                        sha256hex(token),
+                        userId,
+                        new Date(Date.now() + USER_SESSION_TTL_MS).toISOString(),
+                        new Date().toISOString(),
+                    ]
+                );
+                return send(response, 200, { id: userId, email }, { 'set-cookie': userSessionCookie(token) });
+            }
+
+            if (request.method === 'POST' && url.pathname === '/api/users/login') {
+                const body = await readJson(request, 64 * 1024);
+                const email = normalizeEmail(body.email);
+                const ip = (request.socket && request.socket.remoteAddress) || 'unknown';
+                if (
+                    !takeToken(loginEmailLimits, email || 'unknown', 20, 3600 * 1000) ||
+                    !takeToken(loginIpLimits, ip, 20, 3600 * 1000)
+                ) {
+                    return send(response, 429, { error: 'rate limited' });
+                }
+                const rows = await db.query('SELECT id, email, password_hash, disabled FROM users WHERE email = ?', [
+                    email,
+                ]);
+                if (rows.length === 0 || !verifyPassword(body.password || '', rows[0].password_hash)) {
+                    return send(response, 401, { error: 'invalid credentials' });
+                }
+                if (Number(rows[0].disabled) !== 0) return send(response, 403, { error: 'disabled' });
+                const token = newToken();
+                await db.query(
+                    'INSERT INTO sessions (token_hash, user_id, expires_at, created_at) VALUES (?, ?, ?, ?)',
+                    [
+                        sha256hex(token),
+                        rows[0].id,
+                        new Date(Date.now() + USER_SESSION_TTL_MS).toISOString(),
+                        new Date().toISOString(),
+                    ]
+                );
+                return send(
+                    response,
+                    200,
+                    { id: rows[0].id, email: rows[0].email },
+                    { 'set-cookie': userSessionCookie(token) }
+                );
+            }
+
+            if (request.method === 'POST' && url.pathname === '/api/users/logout') {
+                const token = parseCookies(request.headers.cookie).user_session || '';
+                if (/^[0-9a-f]{64}$/.test(token)) {
+                    await db.query('DELETE FROM sessions WHERE token_hash = ?', [sha256hex(token)]);
+                }
+                return send(response, 200, { ok: true }, { 'set-cookie': 'user_session=; HttpOnly; Path=/; Max-Age=0' });
+            }
+
+            if (request.method === 'GET' && url.pathname === '/api/users/me') {
+                const me = await userSession(request, db);
+                if (!me) return send(response, 401, { error: 'unauthorized' });
+                return send(response, 200, me);
+            }
+
             if (request.method === 'POST' && url.pathname === '/api/admin/login') {
                 const body = await readJson(request, 64 * 1024);
                 const rows = await db.query('SELECT * FROM admins WHERE username = ?', [body.username || '']);
@@ -406,4 +539,4 @@ if (require.main === module) {
         });
 }
 
-module.exports = { startServer, verifyPassword };
+module.exports = { startServer, verifyPassword, userSession };
