@@ -94,6 +94,19 @@ function parseBlockedPatternId(pathname) {
     return id;
 }
 
+function parseLibraryItem(pathname) {
+    const match = /^\/api\/users\/library\/([^/]+)\/([^/]+)$/.exec(pathname);
+    if (!match) return null;
+    return { type: decodeURIComponent(match[1]), id: decodeURIComponent(match[2]) };
+}
+
+const LIBRARY_TYPES = ['movie', 'series'];
+const META_ID_RE = /^[A-Za-z0-9:_-]+$/;
+
+function validPositionNumber(value) {
+    return typeof value === 'number' && Number.isFinite(value) && value >= 0;
+}
+
 function userSessionCookie(token) {
     return `user_session=${token}; HttpOnly; Path=/; SameSite=Lax; Max-Age=2592000`;
 }
@@ -435,6 +448,132 @@ function startServer({ port = 3001, db, uploadsDir } = {}) {
                 const me = await userSession(request, db);
                 if (!me) return send(response, 401, { error: 'unauthorized' });
                 return send(response, 200, me);
+            }
+
+            if (request.method === 'GET' && url.pathname === '/api/users/library') {
+                const me = await userSession(request, db);
+                if (!me) return send(response, 401, { error: 'unauthorized' });
+                const filter = url.searchParams.get('type');
+                if (filter !== null && !LIBRARY_TYPES.includes(filter)) {
+                    return send(response, 400, { error: 'bad type' });
+                }
+                const rows = filter === null
+                    ? await db.query(
+                        'SELECT type, meta_id, added_at FROM library_items WHERE user_id = ? ORDER BY type ASC, meta_id ASC',
+                        [me.id]
+                    )
+                    : await db.query(
+                        'SELECT type, meta_id, added_at FROM library_items WHERE user_id = ? AND type = ? ORDER BY type ASC, meta_id ASC',
+                        [me.id, filter]
+                    );
+                return send(response, 200, rows);
+            }
+
+            if (request.method === 'PUT' && url.pathname === '/api/users/library') {
+                const me = await userSession(request, db);
+                if (!me) return send(response, 401, { error: 'unauthorized' });
+                const body = await readJson(request, 64 * 1024);
+                if (!LIBRARY_TYPES.includes(body.type)) return send(response, 400, { error: 'bad type' });
+                if (typeof body.meta_id !== 'string' || !META_ID_RE.test(body.meta_id)) {
+                    return send(response, 400, { error: 'bad meta_id' });
+                }
+                const now = new Date().toISOString();
+                const existing = await db.query(
+                    'SELECT type FROM library_items WHERE user_id = ? AND type = ? AND meta_id = ?',
+                    [me.id, body.type, body.meta_id]
+                );
+                if (existing.length === 0) {
+                    await db.query(
+                        'INSERT INTO library_items (user_id, type, meta_id, added_at) VALUES (?, ?, ?, ?)',
+                        [me.id, body.type, body.meta_id, now]
+                    );
+                } else {
+                    await db.query(
+                        'UPDATE library_items SET added_at = ? WHERE user_id = ? AND type = ? AND meta_id = ?',
+                        [now, me.id, body.type, body.meta_id]
+                    );
+                }
+                const rows = await db.query(
+                    'SELECT type, meta_id, added_at FROM library_items WHERE user_id = ? AND type = ? AND meta_id = ?',
+                    [me.id, body.type, body.meta_id]
+                );
+                return send(response, 200, rows[0]);
+            }
+
+            if (request.method === 'DELETE' && url.pathname.startsWith('/api/users/library/')) {
+                const me = await userSession(request, db);
+                if (!me) return send(response, 401, { error: 'unauthorized' });
+                const target = parseLibraryItem(url.pathname);
+                if (target === null) return send(response, 404, { error: 'not found' });
+                if (!LIBRARY_TYPES.includes(target.type)) return send(response, 400, { error: 'bad type' });
+                if (!META_ID_RE.test(target.id)) return send(response, 400, { error: 'bad meta_id' });
+                await db.query('DELETE FROM library_items WHERE user_id = ? AND type = ? AND meta_id = ?', [
+                    me.id,
+                    target.type,
+                    target.id,
+                ]);
+                return send(response, 200, { ok: true });
+            }
+
+            if (request.method === 'GET' && url.pathname === '/api/users/progress') {
+                const me = await userSession(request, db);
+                if (!me) return send(response, 401, { error: 'unauthorized' });
+                const filter = url.searchParams.get('type');
+                if (filter !== null && !LIBRARY_TYPES.includes(filter)) {
+                    return send(response, 400, { error: 'bad type' });
+                }
+                const rows = filter === null
+                    ? await db.query(
+                        'SELECT type, meta_id, season, episode, position, duration, updated_at FROM progress WHERE user_id = ? ORDER BY type ASC, meta_id ASC',
+                        [me.id]
+                    )
+                    : await db.query(
+                        'SELECT type, meta_id, season, episode, position, duration, updated_at FROM progress WHERE user_id = ? AND type = ? ORDER BY type ASC, meta_id ASC',
+                        [me.id, filter]
+                    );
+                return send(response, 200, rows);
+            }
+
+            if (request.method === 'PUT' && url.pathname === '/api/users/progress') {
+                const me = await userSession(request, db);
+                if (!me) return send(response, 401, { error: 'unauthorized' });
+                const body = await readJson(request, 64 * 1024);
+                if (!LIBRARY_TYPES.includes(body.type)) return send(response, 400, { error: 'bad type' });
+                if (typeof body.meta_id !== 'string' || !META_ID_RE.test(body.meta_id)) {
+                    return send(response, 400, { error: 'bad meta_id' });
+                }
+                if (!validPositionNumber(body.position) || !validPositionNumber(body.duration)) {
+                    return send(response, 400, { error: 'bad position' });
+                }
+                const season = body.season === undefined || body.season === null ? null : body.season;
+                const episode = body.episode === undefined || body.episode === null ? null : body.episode;
+                if (season !== null && !validPositionNumber(season)) {
+                    return send(response, 400, { error: 'bad season' });
+                }
+                if (episode !== null && !validPositionNumber(episode)) {
+                    return send(response, 400, { error: 'bad episode' });
+                }
+                const now = new Date().toISOString();
+                const existing = await db.query(
+                    'SELECT type FROM progress WHERE user_id = ? AND type = ? AND meta_id = ?',
+                    [me.id, body.type, body.meta_id]
+                );
+                if (existing.length === 0) {
+                    await db.query(
+                        'INSERT INTO progress (user_id, type, meta_id, season, episode, position, duration, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+                        [me.id, body.type, body.meta_id, season, episode, body.position, body.duration, now]
+                    );
+                } else {
+                    await db.query(
+                        'UPDATE progress SET season = ?, episode = ?, position = ?, duration = ?, updated_at = ? WHERE user_id = ? AND type = ? AND meta_id = ?',
+                        [season, episode, body.position, body.duration, now, me.id, body.type, body.meta_id]
+                    );
+                }
+                const rows = await db.query(
+                    'SELECT type, meta_id, season, episode, position, duration, updated_at FROM progress WHERE user_id = ? AND type = ? AND meta_id = ?',
+                    [me.id, body.type, body.meta_id]
+                );
+                return send(response, 200, rows[0]);
             }
 
             if (request.method === 'POST' && url.pathname === '/api/users/password/otp/request') {
