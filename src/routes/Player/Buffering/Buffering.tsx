@@ -1,6 +1,7 @@
 import React, { forwardRef, useMemo } from 'react';
 import classNames from 'classnames';
 import { Image } from 'stremio/components';
+import Icon from 'stremio/components/BrandIcons';
 import styles from './Buffering.less';
 
 type Props = {
@@ -18,19 +19,26 @@ const Buffering = forwardRef<HTMLDivElement, Props>(({ className, logo, progress
 
     return (
         <div ref={ref} className={classNames(className, styles['buffering'])}>
-            <Image
-                className={styles['logo']}
-                style={style}
-                src={logo}
-                alt={' '}
-                fallbackSrc={require('/assets/images/stremio_symbol.png')}
-            />
-            <Image
-                className={classNames(styles['logo'], styles['background'])}
-                src={logo}
-                alt={' '}
-                fallbackSrc={require('/assets/images/stremio_symbol.png')}
-            />
+            {
+                typeof logo === 'string' && logo.length > 0 ?
+                    <React.Fragment>
+                        <Image
+                            className={styles['logo']}
+                            style={style}
+                            src={logo}
+                            alt={' '}
+                            fallbackSrc={'/brand/logo.svg'}
+                        />
+                        <Image
+                            className={classNames(styles['logo'], styles['background'])}
+                            src={logo}
+                            alt={' '}
+                            fallbackSrc={'/brand/logo.svg'}
+                        />
+                    </React.Fragment>
+                    :
+                    <Icon className={styles['spinner']} name={'loader'} />
+            }
         </div>
     );
 });

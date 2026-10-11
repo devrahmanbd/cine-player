@@ -18,6 +18,27 @@
             opacity: 0.2 !important;
         }
     }
+
+    .spinner {
+        display: block;
+        width: 5rem;
+        height: 5rem;
+        color: #fff;
+        opacity: 0.9;
+        animation: spin 900ms linear infinite;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .buffering .spinner {
+        animation: none;
+    }
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
 }
 
 @keyframes pulse {

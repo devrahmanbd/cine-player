@@ -53,6 +53,7 @@ const ImdbOutline = require('./icons/imdb-outline');
 const Library = require('./icons/library');
 const LibraryOutline = require('./icons/library-outline');
 const Link = require('./icons/link');
+const Loader = require('./icons/loader');
 const Macos = require('./icons/macos');
 const MagnetLink = require('./icons/magnet-link');
 const Maximize = require('./icons/maximize');
@@ -148,6 +149,7 @@ const ICONS = {
     'library': Library,
     'library-outline': LibraryOutline,
     'link': Link,
+    'loader': Loader,
     'macos': Macos,
     'magnet-link': MagnetLink,
     'maximize': Maximize,
