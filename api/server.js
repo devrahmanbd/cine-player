@@ -108,6 +108,12 @@ function parseLibraryItem(pathname) {
     return { type: decodeURIComponent(match[1]), id: decodeURIComponent(match[2]) };
 }
 
+function parseProgressItem(pathname) {
+    const match = /^\/api\/users\/progress\/([^/]+)\/([^/]+)$/.exec(pathname);
+    if (!match) return null;
+    return { type: decodeURIComponent(match[1]), id: decodeURIComponent(match[2]) };
+}
+
 const LIBRARY_TYPES = ['movie', 'series'];
 const META_ID_RE = /^[A-Za-z0-9:_-]+$/;
 
@@ -660,6 +666,21 @@ function startServer({ port = 3001, db, uploadsDir } = {}) {
                     [me.id, body.type, body.meta_id]
                 );
                 return send(response, 200, rows[0]);
+            }
+
+            if (request.method === 'DELETE' && url.pathname.startsWith('/api/users/progress/')) {
+                const me = await userSession(request, db);
+                if (!me) return send(response, 401, { error: 'unauthorized' });
+                const target = parseProgressItem(url.pathname);
+                if (target === null) return send(response, 404, { error: 'not found' });
+                if (!LIBRARY_TYPES.includes(target.type)) return send(response, 400, { error: 'bad type' });
+                if (!META_ID_RE.test(target.id)) return send(response, 400, { error: 'bad meta_id' });
+                await db.query('DELETE FROM progress WHERE user_id = ? AND type = ? AND meta_id = ?', [
+                    me.id,
+                    target.type,
+                    target.id,
+                ]);
+                return send(response, 200, { ok: true });
             }
 
             if (request.method === 'POST' && url.pathname === '/api/users/password/otp/request') {

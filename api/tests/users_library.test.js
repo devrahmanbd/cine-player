@@ -178,4 +178,31 @@ describe('users library + progress', () => {
             assert.equal((await put('/api/users/progress', body, cookieA)).status, 400);
         }
     });
+
+    it('progress delete 401s without a user session cookie', async () => {
+        assert.equal((await del('/api/users/progress/movie/tt123')).status, 401);
+    });
+
+    it('progress delete is idempotent and cannot touch other users', async () => {
+        assert.equal((await put('/api/users/progress', {
+            type: 'movie', meta_id: 'tt-only-a-prog', position: 5, duration: 50,
+        }, cookieA)).status, 200);
+        // B deleting A's unique id is a no-op for A (still 200, A's row survives).
+        const cross = await del('/api/users/progress/movie/tt-only-a-prog', cookieB);
+        assert.equal(cross.status, 200);
+        assert.deepEqual(await cross.json(), { ok: true });
+        const stillA = await (await get('/api/users/progress?type=movie', cookieA)).json();
+        assert.ok(stillA.some((r) => r.meta_id === 'tt-only-a-prog'));
+
+        const gone = await del('/api/users/progress/movie/tt-only-a-prog', cookieA);
+        assert.equal(gone.status, 200);
+        assert.deepEqual(await gone.json(), { ok: true });
+        const afterA = await (await get('/api/users/progress?type=movie', cookieA)).json();
+        assert.ok(!afterA.some((r) => r.meta_id === 'tt-only-a-prog'));
+        // Idempotent second delete.
+        assert.equal((await del('/api/users/progress/movie/tt-only-a-prog', cookieA)).status, 200);
+        // B's own rows are untouched by A's delete.
+        const stillB = await (await get('/api/users/progress?type=movie', cookieB)).json();
+        assert.ok(stillB.some((r) => r.meta_id === 'tt123'));
+    });
 });
