@@ -112,9 +112,35 @@ const useLocalAuth = () => {
     const signup = React.useCallback(async (email, password) => {
         setSharedState({ type: 'start' });
         try {
-            const user = toUser(await apiRequest('/api/users/signup', { email, password }));
+            // No session until the email is verified: return the signup
+            // receipt, keep the current user, and let the caller route to
+            // the OTP confirm view.
+            const data = await apiRequest('/api/users/signup', { email, password });
+            setSharedState({ type: 'success', user: sharedState.user });
+            return data;
+        } catch (error) {
+            setSharedState({ type: 'failure', error: error.message });
+            throw error;
+        }
+    }, []);
+
+    const verifySignup = React.useCallback(async (email, code) => {
+        setSharedState({ type: 'start' });
+        try {
+            const user = toUser(await apiRequest('/api/users/verify', { email, code }));
             setSharedState({ type: 'success', user });
             return user;
+        } catch (error) {
+            setSharedState({ type: 'failure', error: error.message });
+            throw error;
+        }
+    }, []);
+
+    const resendCode = React.useCallback(async (email) => {
+        setSharedState({ type: 'start' });
+        try {
+            await apiRequest('/api/users/verify/request', { email });
+            setSharedState({ type: 'success', user: sharedState.user });
         } catch (error) {
             setSharedState({ type: 'failure', error: error.message });
             throw error;
@@ -177,6 +203,8 @@ const useLocalAuth = () => {
         loading: sharedState.loading,
         error: sharedState.error,
         signup,
+        verifySignup,
+        resendCode,
         login,
         logout,
         requestOtp,

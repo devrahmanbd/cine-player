@@ -27,20 +27,26 @@ describe('users auth', () => {
         headers: { 'content-type': 'application/json', ...(ck ? { cookie: ck } : {}) },
         body: JSON.stringify(body),
     });
-    it('signup validates, dedups, and sets a session cookie', async () => {
+    const verifyEmail = (email) => db.query('UPDATE users SET verified = 1 WHERE email = ?', [email]);
+    it('signup validates, dedups, and sends a code without a session', async () => {
         assert.equal((await post('/api/users/signup', { email: 'bad', password: '12345678' })).status, 400);
         assert.equal((await post('/api/users/signup', { email: 'a@b.co', password: 'short' })).status, 400);
         const res = await post('/api/users/signup', { email: 'Ann@Example.com', password: 's3cret-pass' });
         assert.equal(res.status, 200);
         const body = await res.json();
         assert.equal(body.email, 'ann@example.com');
-        cookie = res.headers.get('set-cookie').split(';')[0];
-        assert.match(cookie, /^user_session=[0-9a-f]{64}$/);
+        assert.equal(body.verified, false);
+        assert.equal(res.headers.get('set-cookie'), null);
         assert.equal((await post('/api/users/signup', { email: 'ann@example.com', password: 'other-pass-1' })).status, 409);
-    });
-    it('login accepts good credentials and rejects bad ones identically', async () => {
+        await verifyEmail('ann@example.com');
         const ok = await post('/api/users/login', { email: 'ann@example.com', password: 's3cret-pass' });
         assert.equal(ok.status, 200);
+        cookie = ok.headers.get('set-cookie').split(';')[0];
+        assert.match(cookie, /^user_session=[0-9a-f]{64}$/);
+    });
+    it('login rejects unverified accounts and bad credentials identically', async () => {
+        await post('/api/users/signup', { email: 'fresh@example.com', password: 's3cret-pass' });
+        assert.equal((await post('/api/users/login', { email: 'fresh@example.com', password: 's3cret-pass' })).status, 403);
         assert.equal((await post('/api/users/login', { email: 'ann@example.com', password: 'nope-nope-no' })).status, 401);
         assert.equal((await post('/api/users/login', { email: 'ghost@example.com', password: 'nope-nope-no' })).status, 401);
     });
@@ -54,7 +60,9 @@ describe('users auth', () => {
         assert.equal((await fetch(`${base}/api/users/me`, { headers: { cookie } })).status, 401);
     });
     it('me re-issues the cookie when the session slides, not otherwise', async () => {
-        const res = await post('/api/users/signup', { email: 'slide@example.com', password: 's3cret-pass' });
+        await post('/api/users/signup', { email: 'slide@example.com', password: 's3cret-pass' });
+        await verifyEmail('slide@example.com');
+        const res = await post('/api/users/login', { email: 'slide@example.com', password: 's3cret-pass' });
         assert.equal(res.status, 200);
         const raw = res.headers.get('set-cookie').split(';')[0];
         const token = raw.split('=')[1];

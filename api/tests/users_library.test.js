@@ -26,12 +26,20 @@ describe('users library + progress', () => {
             headers: { 'content-type': 'application/json' },
             body: JSON.stringify({ email, password: 's3cret-pass' }),
         });
+        const login = (email) => fetch(`${base}/api/users/login`, {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ email, password: 's3cret-pass' }),
+        });
+        // Simulate verified emails (dedicated verify flow is covered in users_verify.test.js).
         const resA = await signup('lib-a@example.com');
         assert.equal(resA.status, 200);
-        cookieA = resA.headers.get('set-cookie').split(';')[0];
+        await db.query('UPDATE users SET verified = 1 WHERE email = ?', ['lib-a@example.com']);
+        cookieA = (await login('lib-a@example.com')).headers.get('set-cookie').split(';')[0];
         const resB = await signup('lib-b@example.com');
         assert.equal(resB.status, 200);
-        cookieB = resB.headers.get('set-cookie').split(';')[0];
+        await db.query('UPDATE users SET verified = 1 WHERE email = ?', ['lib-b@example.com']);
+        cookieB = (await login('lib-b@example.com')).headers.get('set-cookie').split(';')[0];
     });
     after(async () => { await new Promise((r) => server.close(r)); await db.close(); });
 

@@ -54,6 +54,12 @@ async function createSchema(db) {
     for (const statement of schema.split(';')) {
         if (statement.trim().length > 0) await db.query(statement);
     }
+    // Idempotent migration for databases created before a column existed.
+    try {
+        await db.query('ALTER TABLE users ADD COLUMN verified INTEGER NOT NULL DEFAULT 0');
+    } catch (error) {
+        if (!/duplicate|already exists/i.test(error.message || '')) throw error;
+    }
 }
 
 async function seedDefaults(db, { adminUser, adminPassword, siteName } = {}) {

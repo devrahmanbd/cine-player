@@ -28,7 +28,12 @@ describe('users otp reset', () => {
         headers: { 'content-type': 'application/json', ...(ck ? { cookie: ck } : {}) },
         body: JSON.stringify(body),
     });
-    const signup = (email, password) => post('/api/users/signup', { email, password });
+    const signup = async (email, password) => {
+        const res = await post('/api/users/signup', { email, password });
+        // Simulate a verified email (dedicated verify flow is covered in users_verify.test.js).
+        await db.query('UPDATE users SET verified = 1 WHERE email = ?', [email.toLowerCase()]);
+        return res;
+    };
 
     it('request contract: 503 on smtp failure, 200 oracle-free for ghosts, 400 for bad shapes', async () => {
         await signup('otp-req@example.com', 'old-password-1');

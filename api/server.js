@@ -155,6 +155,80 @@ async function userSession(request, db) {
     }
 }
 
+async function brandSiteName(db) {
+    try {
+        const brand = await db.query('SELECT site_name FROM branding WHERE id = 1');
+        if (brand.length > 0 && typeof brand[0].site_name === 'string' && brand[0].site_name) {
+            return brand[0].site_name;
+        }
+    } catch {
+        // Fall through with the default site name.
+    }
+    return 'Site';
+}
+
+// Invalidates prior codes, mints a fresh 10-minute OTP, returns the code.
+async function mintOtpCode(db, email) {
+    await db.query('UPDATE otp_codes SET consumed = 1 WHERE email = ? AND consumed = 0', [email]);
+    const code = otpCode();
+    const now = new Date();
+    await db.query(
+        'INSERT INTO otp_codes (email, code_hash, expires_at, attempts, consumed, created_at) VALUES (?, ?, ?, 0, 0, ?)',
+        [email, hashPassword(code), new Date(now.getTime() + 10 * 60 * 1000).toISOString(), now.toISOString()]
+    );
+    return code;
+}
+
+// Sends the OTP mail; kind is 'verify' (signup) or 'password' (reset).
+// Returns true when accepted, false on mail failure (logged, never throws).
+async function mailOtpCode(db, email, code, kind) {
+    const site = await brandSiteName(db);
+    const subject = kind === 'verify' ? `${site} verification code` : `${site} password code`;
+    const text =
+        kind === 'verify'
+            ? `Your ${site} verification code is ${code}. It expires in 10 minutes.`
+            : `Your ${site} password code is ${code}. It expires in 10 minutes.`;
+    try {
+        await sendMail({ to: email, subject, text });
+        return true;
+    } catch (error) {
+        console.error('otp mail failed', error && error.message ? error.message : error);
+        return false;
+    }
+}
+
+// Shared newest-code check for verify endpoints. Returns { row } or { status, error }.
+async function checkOtpCode(db, email, code) {
+    const rows = await db.query(
+        'SELECT id, code_hash, expires_at, attempts FROM otp_codes WHERE email = ? AND consumed = 0 ORDER BY id DESC LIMIT 1',
+        [email]
+    );
+    if (rows.length === 0) return { status: 401, error: 'invalid code' };
+    const row = rows[0];
+    const expires = Date.parse(row.expires_at);
+    if (Number(row.attempts) >= 5) {
+        if (!Number.isFinite(expires) || expires <= Date.now()) {
+            return { status: 401, error: 'invalid code' };
+        }
+        return { status: 429, error: 'rate limited' };
+    }
+    if (!Number.isFinite(expires) || expires <= Date.now()) {
+        await db.query('UPDATE otp_codes SET attempts = attempts + 1 WHERE id = ?', [row.id]);
+        return { status: 401, error: 'invalid code' };
+    }
+    let ok = false;
+    try {
+        ok = verifyPassword(code, row.code_hash);
+    } catch {
+        ok = false;
+    }
+    if (!ok) {
+        await db.query('UPDATE otp_codes SET attempts = attempts + 1 WHERE id = ?', [row.id]);
+        return { status: 401, error: 'invalid code' };
+    }
+    return { row };
+}
+
 function startServer({ port = 3001, db, uploadsDir } = {}) {
     const sessions = new Map();
     // Single-instance sessions: in-memory Map (restart logs admins out).
@@ -165,6 +239,8 @@ function startServer({ port = 3001, db, uploadsDir } = {}) {
     const loginIpLimits = new Map();
     const otpRequestEmailLimits = new Map();
     const otpRequestIpLimits = new Map();
+    const verifyEmailLimits = new Map();
+    const verifyIpLimits = new Map();
     const uploads = uploadsDir || process.env.UPLOADS_DIR || path.join(__dirname, 'uploads');
     fs.mkdirSync(uploads, { recursive: true });
 
@@ -385,7 +461,7 @@ function startServer({ port = 3001, db, uploadsDir } = {}) {
                 let userId;
                 try {
                     const info = await db.query(
-                        'INSERT INTO users (email, password_hash, disabled, created_at) VALUES (?, ?, 0, ?)',
+                        'INSERT INTO users (email, password_hash, disabled, verified, created_at) VALUES (?, ?, 0, 0, ?)',
                         [email, hashPassword(body.password), new Date().toISOString()]
                     );
                     userId = Number(info && (info.lastInsertRowid ?? info.insertId));
@@ -400,17 +476,13 @@ function startServer({ port = 3001, db, uploadsDir } = {}) {
                     if (rows.length === 0) return send(response, 500, { error: 'server error' });
                     userId = rows[0].id;
                 }
-                const token = newToken();
-                await db.query(
-                    'INSERT INTO sessions (token_hash, user_id, expires_at, created_at) VALUES (?, ?, ?, ?)',
-                    [
-                        sha256hex(token),
-                        userId,
-                        new Date(Date.now() + USER_SESSION_TTL_MS).toISOString(),
-                        new Date().toISOString(),
-                    ]
-                );
-                return send(response, 200, { id: userId, email }, { 'set-cookie': userSessionCookie(token) });
+                // No session until the email is verified: mint a code and mail
+                // it. mailed=false (mail down) leaves the account usable via
+                // POST /api/users/verify/request retry — never a 503 here
+                // since the account itself was created.
+                const code = await mintOtpCode(db, email);
+                const mailed = await mailOtpCode(db, email, code, 'verify');
+                return send(response, 200, { id: userId, email, verified: false, mailed });
             }
 
             if (request.method === 'POST' && url.pathname === '/api/users/login') {
@@ -422,13 +494,14 @@ function startServer({ port = 3001, db, uploadsDir } = {}) {
                 if (!emailOk || !ipOk) {
                     return send(response, 429, { error: 'rate limited' });
                 }
-                const rows = await db.query('SELECT id, email, password_hash, disabled FROM users WHERE email = ?', [
+                const rows = await db.query('SELECT id, email, password_hash, disabled, verified FROM users WHERE email = ?', [
                     email,
                 ]);
                 if (rows.length === 0 || !verifyPassword(body.password || '', rows[0].password_hash)) {
                     return send(response, 401, { error: 'invalid credentials' });
                 }
                 if (Number(rows[0].disabled) !== 0) return send(response, 403, { error: 'disabled' });
+                if (Number(rows[0].verified) !== 1) return send(response, 403, { error: 'unverified' });
                 const token = newToken();
                 await db.query(
                     'INSERT INTO sessions (token_hash, user_id, expires_at, created_at) VALUES (?, ?, ?, ?)',
@@ -603,30 +676,8 @@ function startServer({ port = 3001, db, uploadsDir } = {}) {
                 if (users.length === 0 || Number(users[0].disabled) !== 0) {
                     return send(response, 200, { ok: true });
                 }
-                await db.query('UPDATE otp_codes SET consumed = 1 WHERE email = ? AND consumed = 0', [email]);
-                const code = otpCode();
-                const now = new Date();
-                await db.query(
-                    'INSERT INTO otp_codes (email, code_hash, expires_at, attempts, consumed, created_at) VALUES (?, ?, ?, 0, 0, ?)',
-                    [email, hashPassword(code), new Date(now.getTime() + 10 * 60 * 1000).toISOString(), now.toISOString()]
-                );
-                let site = 'Site';
-                try {
-                    const brand = await db.query('SELECT site_name FROM branding WHERE id = 1');
-                    if (brand.length > 0 && typeof brand[0].site_name === 'string' && brand[0].site_name) {
-                        site = brand[0].site_name;
-                    }
-                } catch {
-                    // Fall through with the default site name.
-                }
-                try {
-                    await sendMail({
-                        to: email,
-                        subject: `${site} password code`,
-                        text: `Your ${site} password code is ${code}. It expires in 10 minutes.`,
-                    });
-                } catch (error) {
-                    console.error('otp mail failed', error && error.message ? error.message : error);
+                const code = await mintOtpCode(db, email);
+                if (!(await mailOtpCode(db, email, code, 'password'))) {
                     return send(response, 503, { error: 'mail failed' });
                 }
                 return send(response, 200, { ok: true });
@@ -640,44 +691,74 @@ function startServer({ port = 3001, db, uploadsDir } = {}) {
                 if (!validEmail(email) || code.length === 0) {
                     return send(response, 401, { error: 'invalid code' });
                 }
-                const rows = await db.query(
-                    'SELECT id, code_hash, expires_at, attempts FROM otp_codes WHERE email = ? AND consumed = 0 ORDER BY id DESC LIMIT 1',
-                    [email]
-                );
-                if (rows.length === 0) return send(response, 401, { error: 'invalid code' });
-                const row = rows[0];
-                const expires = Date.parse(row.expires_at);
-                if (Number(row.attempts) >= 5) {
-                    if (!Number.isFinite(expires) || expires <= Date.now()) {
-                        return send(response, 401, { error: 'invalid code' });
-                    }
-                    return send(response, 429, { error: 'rate limited' });
-                }
-                if (!Number.isFinite(expires) || expires <= Date.now()) {
-                    await db.query('UPDATE otp_codes SET attempts = attempts + 1 WHERE id = ?', [row.id]);
-                    return send(response, 401, { error: 'invalid code' });
-                }
-                let ok = false;
-                try {
-                    ok = verifyPassword(code, row.code_hash);
-                } catch {
-                    ok = false;
-                }
-                if (!ok) {
-                    await db.query('UPDATE otp_codes SET attempts = attempts + 1 WHERE id = ?', [row.id]);
-                    return send(response, 401, { error: 'invalid code' });
-                }
+                const checked = await checkOtpCode(db, email, code);
+                if (!checked.row) return send(response, checked.status, { error: checked.error });
                 const users = await db.query('SELECT id, disabled FROM users WHERE email = ?', [email]);
                 if (users.length === 0 || Number(users[0].disabled) !== 0) {
                     return send(response, 401, { error: 'invalid code' });
                 }
-                await db.query('UPDATE users SET password_hash = ? WHERE id = ?', [
+                await db.query('UPDATE users SET password_hash = ?, verified = 1 WHERE id = ?', [
                     hashPassword(body.password),
                     users[0].id,
                 ]);
                 await db.query('UPDATE otp_codes SET consumed = 1 WHERE email = ? AND consumed = 0', [email]);
                 await db.query('DELETE FROM sessions WHERE user_id = ?', [users[0].id]);
                 return send(response, 200, { ok: true });
+            }
+
+            if (request.method === 'POST' && url.pathname === '/api/users/verify/request') {
+                const body = await readJson(request, 64 * 1024);
+                const email = normalizeEmail(body.email);
+                if (!validEmail(email)) return send(response, 400, { error: 'bad input' });
+                const ip = (request.socket && request.socket.remoteAddress) || 'unknown';
+                const emailOk = takeToken(verifyEmailLimits, email, 5, 3600 * 1000);
+                const ipOk = takeToken(verifyIpLimits, ip, 20, 3600 * 1000);
+                if (!emailOk || !ipOk) {
+                    return send(response, 429, { error: 'rate limited' });
+                }
+                const users = await db.query('SELECT id, disabled, verified FROM users WHERE email = ?', [email]);
+                if (users.length === 0 || Number(users[0].disabled) !== 0 || Number(users[0].verified) === 1) {
+                    return send(response, 200, { ok: true });
+                }
+                const code = await mintOtpCode(db, email);
+                if (!(await mailOtpCode(db, email, code, 'verify'))) {
+                    return send(response, 503, { error: 'mail failed' });
+                }
+                return send(response, 200, { ok: true });
+            }
+
+            if (request.method === 'POST' && url.pathname === '/api/users/verify') {
+                const body = await readJson(request, 64 * 1024);
+                const email = normalizeEmail(body.email);
+                const code = typeof body.code === 'string' ? body.code.trim() : '';
+                if (!validEmail(email) || code.length === 0) {
+                    return send(response, 401, { error: 'invalid code' });
+                }
+                const ip = (request.socket && request.socket.remoteAddress) || 'unknown';
+                const emailOk = takeToken(verifyEmailLimits, email, 20, 3600 * 1000);
+                const ipOk = takeToken(verifyIpLimits, ip, 20, 3600 * 1000);
+                if (!emailOk || !ipOk) {
+                    return send(response, 429, { error: 'rate limited' });
+                }
+                const checked = await checkOtpCode(db, email, code);
+                if (!checked.row) return send(response, checked.status, { error: checked.error });
+                const users = await db.query('SELECT id, email, disabled FROM users WHERE email = ?', [email]);
+                if (users.length === 0 || Number(users[0].disabled) !== 0) {
+                    return send(response, 401, { error: 'invalid code' });
+                }
+                await db.query('UPDATE users SET verified = 1 WHERE id = ?', [users[0].id]);
+                await db.query('UPDATE otp_codes SET consumed = 1 WHERE email = ? AND consumed = 0', [email]);
+                const token = newToken();
+                await db.query(
+                    'INSERT INTO sessions (token_hash, user_id, expires_at, created_at) VALUES (?, ?, ?, ?)',
+                    [
+                        sha256hex(token),
+                        users[0].id,
+                        new Date(Date.now() + USER_SESSION_TTL_MS).toISOString(),
+                        new Date().toISOString(),
+                    ]
+                );
+                return send(response, 200, { id: users[0].id, email: users[0].email }, { 'set-cookie': userSessionCookie(token) });
             }
 
             if (request.method === 'POST' && url.pathname === '/api/admin/login') {
@@ -737,6 +818,8 @@ function startServer({ port = 3001, db, uploadsDir } = {}) {
                     if (!validPassword(body.password)) return send(response, 400, { error: 'bad input' });
                     sets.push('password_hash = ?');
                     params.push(hashPassword(body.password));
+                    // Operator-set password verifies identity out-of-band.
+                    sets.push('verified = 1');
                     revokeSessions = true;
                 }
                 if (sets.length === 0) return send(response, 400, { error: 'nothing to update' });

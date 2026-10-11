@@ -32,6 +32,8 @@ const Intro = () => {
         user: localUser,
         loading: authLoading,
         signup: authSignup,
+        verifySignup: authVerifySignup,
+        resendCode: authResendCode,
         login: authLogin,
         requestOtp: authRequestOtp,
         confirmOtp: authConfirmOtp
@@ -61,6 +63,7 @@ const Intro = () => {
                             privacyPolicyAccepted: false,
                             marketingAccepted: false,
                             otp: null,
+                            otpMode: 'reset',
                             code: '',
                             newPassword: '',
                             confirmNewPassword: '',
@@ -72,6 +75,7 @@ const Intro = () => {
                     return {
                         ...state,
                         otp: action.otp,
+                        otpMode: action.mode || state.otpMode,
                         error: ''
                     };
                 case 'change-credentials':
@@ -104,6 +108,7 @@ const Intro = () => {
             privacyPolicyAccepted: false,
             marketingAccepted: false,
             otp: null,
+            otpMode: 'reset',
             code: '',
             newPassword: '',
             confirmNewPassword: '',
@@ -144,16 +149,22 @@ const Intro = () => {
             dispatch({ type: 'error', error: t('MUST_ACCEPT_PRIVACY_POLICY') });
             return;
         }
-        authSignup(state.email, state.password).catch((error) => {
+        authSignup(state.email, state.password).then(() => {
+            dispatch({ type: 'show-otp', otp: OTP_CONFIRM_VIEW, mode: 'signup' });
+        }).catch((error) => {
             dispatch({ type: 'error', error: error.message });
         });
     }, [state.email, state.password, state.confirmPassword, state.termsAccepted, state.privacyPolicyAccepted, authSignup, t]);
     const openForgotPassword = React.useCallback(() => {
-        dispatch({ type: 'show-otp', otp: OTP_REQUEST_VIEW });
+        dispatch({ type: 'show-otp', otp: OTP_REQUEST_VIEW, mode: 'reset' });
     }, []);
     const backFromOtp = React.useCallback(() => {
+        if (state.otpMode === 'signup') {
+            dispatch({ type: 'show-otp', otp: null, mode: 'reset' });
+            return;
+        }
         dispatch({ type: 'show-otp', otp: state.otp === OTP_CONFIRM_VIEW ? OTP_REQUEST_VIEW : null });
-    }, [state.otp]);
+    }, [state.otp, state.otpMode]);
     const submitOtpRequest = React.useCallback(() => {
         if (typeof state.email !== 'string' || state.email.length === 0 || !emailRef.current.validity.valid) {
             dispatch({ type: 'error', error: t('INVALID_EMAIL') });
@@ -166,6 +177,16 @@ const Intro = () => {
         });
     }, [state.email, authRequestOtp, t]);
     const submitOtpConfirm = React.useCallback(() => {
+        if (state.otpMode === 'signup') {
+            if (typeof state.code !== 'string' || state.code.trim().length === 0) {
+                dispatch({ type: 'error', error: t('INVALID_CODE') });
+                return;
+            }
+            authVerifySignup(state.email, state.code).catch((error) => {
+                dispatch({ type: 'error', error: error.message });
+            });
+            return;
+        }
         if (typeof state.newPassword !== 'string' || state.newPassword.length === 0) {
             dispatch({ type: 'error', error: t('INVALID_PASSWORD') });
             return;
@@ -179,7 +200,12 @@ const Intro = () => {
         }).catch((error) => {
             dispatch({ type: 'error', error: error.message });
         });
-    }, [state.email, state.code, state.newPassword, state.confirmNewPassword, authConfirmOtp, t]);
+    }, [state.otpMode, state.email, state.code, state.newPassword, state.confirmNewPassword, authVerifySignup, authConfirmOtp, t]);
+    const resendSignupCode = React.useCallback(() => {
+        authResendCode(state.email).catch((error) => {
+            dispatch({ type: 'error', error: error.message });
+        });
+    }, [state.email, authResendCode]);
     const emailOnChange = React.useCallback((event) => {
         dispatch({
             type: 'change-credentials',
@@ -336,36 +362,44 @@ const Intro = () => {
                             :
                             state.otp === OTP_CONFIRM_VIEW ?
                                 <React.Fragment>
-                                    <div className={styles['otp-title']}>{t('PASSWORD_RESET')}</div>
-                                    <div className={styles['otp-message']}>{t('WEBSITE_RESET_PASSWORD_MESSAGE')}</div>
+                                    <div className={styles['otp-title']}>{state.otpMode === 'signup' ? t('VERIFY_EMAIL_TITLE') : t('PASSWORD_RESET')}</div>
+                                    <div className={styles['otp-message']}>{state.otpMode === 'signup' ? t('VERIFY_EMAIL_MESSAGE') : t('WEBSITE_RESET_PASSWORD_MESSAGE')}</div>
                                     <CredentialsTextInput
                                         ref={otpCodeRef}
                                         className={styles['credentials-text-input']}
                                         type={'text'}
                                         autoComplete={'one-time-code'}
                                         inputMode={'numeric'}
+                                        aria-label={state.otpMode === 'signup' ? t('VERIFY_EMAIL_TITLE') : t('PASSWORD_RESET')}
                                         value={state.code}
                                         onChange={codeOnChange}
                                         onSubmit={codeOnSubmit}
                                     />
-                                    <CredentialsTextInput
-                                        ref={otpPasswordRef}
-                                        className={styles['credentials-text-input']}
-                                        type={'password'}
-                                        placeholder={t('WEBSITE_NEW_PASSWORD')}
-                                        value={state.newPassword}
-                                        onChange={newPasswordOnChange}
-                                        onSubmit={newPasswordOnSubmit}
-                                    />
-                                    <CredentialsTextInput
-                                        ref={otpConfirmPasswordRef}
-                                        className={styles['credentials-text-input']}
-                                        type={'password'}
-                                        placeholder={t('WEBSITE_REPEAT_NEW_PASSWORD')}
-                                        value={state.confirmNewPassword}
-                                        onChange={confirmNewPasswordOnChange}
-                                        onSubmit={confirmNewPasswordOnSubmit}
-                                    />
+                                    {
+                                        state.otpMode === 'signup' ?
+                                            null
+                                            :
+                                            <React.Fragment>
+                                                <CredentialsTextInput
+                                                    ref={otpPasswordRef}
+                                                    className={styles['credentials-text-input']}
+                                                    type={'password'}
+                                                    placeholder={t('WEBSITE_NEW_PASSWORD')}
+                                                    value={state.newPassword}
+                                                    onChange={newPasswordOnChange}
+                                                    onSubmit={newPasswordOnSubmit}
+                                                />
+                                                <CredentialsTextInput
+                                                    ref={otpConfirmPasswordRef}
+                                                    className={styles['credentials-text-input']}
+                                                    type={'password'}
+                                                    placeholder={t('WEBSITE_REPEAT_NEW_PASSWORD')}
+                                                    value={state.confirmNewPassword}
+                                                    onChange={confirmNewPasswordOnChange}
+                                                    onSubmit={confirmNewPasswordOnSubmit}
+                                                />
+                                            </React.Fragment>
+                                    }
                                     {
                                         state.error && state.error.length > 0 ?
                                             <div ref={errorRef} className={styles['error-message']}>{state.error}</div>
@@ -375,6 +409,14 @@ const Intro = () => {
                                     <Button className={classnames(styles['form-button'], styles['submit-button'])} onClick={submitOtpConfirm}>
                                         <div className={styles['label']}>{t('BUTTON_CONFIRM')}</div>
                                     </Button>
+                                    {
+                                        state.otpMode === 'signup' ?
+                                            <Button className={classnames(styles['form-button'], styles['login-form-button'])} onClick={resendSignupCode}>
+                                                <div className={styles['label']}>{t('VERIFY_RESEND')}</div>
+                                            </Button>
+                                            :
+                                            null
+                                    }
                                     <Button className={classnames(styles['form-button'], styles['login-form-button'])} onClick={backFromOtp}>
                                         <div className={styles['label']}>{t('BACK')}</div>
                                     </Button>

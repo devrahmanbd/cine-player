@@ -48,7 +48,10 @@ describe('admin users tab', () => {
         const res = await post('/api/users/signup', { email: 'Tab@Example.com', password: 's3cret-pass' });
         assert.equal(res.status, 200);
         userId = (await res.json()).id;
-        userCookie = res.headers.get('set-cookie').split(';')[0];
+        await db.query('UPDATE users SET verified = 1 WHERE id = ?', [userId]);
+        const login = await post('/api/users/login', { email: 'tab@example.com', password: 's3cret-pass' });
+        assert.equal(login.status, 200);
+        userCookie = login.headers.get('set-cookie').split(';')[0];
         const list = await fetch(`${base}/api/admin/users`, { headers: { cookie: adminCookie } });
         assert.equal(list.status, 200);
         const rows = await list.json();
