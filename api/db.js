@@ -17,6 +17,12 @@ function openDb() {
     }
     const { DatabaseSync } = require('node:sqlite');
     const db = new DatabaseSync(process.env.DB_PATH || './data/brand.db');
+    try {
+        db.exec('PRAGMA journal_mode=WAL');
+        db.exec('PRAGMA busy_timeout=5000');
+    } catch {
+        // Fail-open: never break startup if pragmas are unsupported.
+    }
     return {
         driver: 'sqlite',
         query: (sql, params = []) => {
