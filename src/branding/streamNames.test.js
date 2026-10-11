@@ -167,3 +167,21 @@ describe('isPlayableStream', () => {
         expect(isPlayableStream({ url: 'https://future-cdn.example/stream/xyz?token=1' })).toBe(true);
     });
 });
+
+describe('maskStreamDescription host/group stripping', () => {
+    test('strips release-group parens but keeps the year', () => {
+        const out = maskStreamDescription('Backrooms (2026) 2160p UHD BluRay (WOU-4 Remux HDR DV | Hindi FSL | 4KHDHub');
+        expect(out).toMatch(/Backrooms \(2026\) 2160p/);
+        expect(out).not.toMatch(/WOU-4|4KHDHub/);
+    });
+
+    test('strips hostnames and site tags', () => {
+        const out = maskStreamDescription('Backrooms.2026.1080p.BluRay REMUX AVC (RFX-4kHDHub.com).mkv Hindi FSL | 4KHDHub');
+        expect(out).not.toMatch(/4kHDHub\.com|4KHDHub|FSL/i);
+        expect(out).toMatch(/Backrooms/);
+    });
+
+    test('strips bare URLs', () => {
+        expect(maskStreamDescription('Title https://example.com/x 1080p')).toBe('Title 1080p');
+    });
+});

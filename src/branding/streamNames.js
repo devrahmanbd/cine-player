@@ -39,6 +39,15 @@ function maskStreamName(raw) {
     return result;
 }
 
+// Uploader/site tags stripped as standalone tokens. Scoped to known
+// release-host shapes (not substrings) so ordinary words survive.
+const GROUP_TAGS_RE = /\b(4khdhub|hdhub|vegamovies|filemoon|hubcloud|pixeldrain|doodstream|streamtape|voe|mixdrop|uqload|lulustream|filelions|dropload|vidsrc|vidzee|vixsrc|frembed|cuevana|fsl|ettv|rarbg|yts|eztv)\b/gi;
+
+// Bare hostnames/URLs (with or without scheme). The trailing lookahead keeps
+// dotted filenames intact: "HDHub4u.Ms.mkv" survives (TLD must end the token),
+// "RFX-4kHDHub.com)" and "Vegamovies.NL" do not. Never touches emails.
+const HOST_RE = /(?:https?:\/\/|www\.)\S+|(?<![\w@])[\w-]+\.(?:com|net|org|io|dev|ist|guru|to|nl|ac|tv|cc|ms|club|online|site|top)(?::\d+)?(?:\/[^\s|)\],]*)?(?=[\s|)\],]|$)/gi;
+
 function maskStreamDescription(raw) {
     if (typeof raw !== 'string') {
         return raw;
@@ -50,7 +59,15 @@ function maskStreamDescription(raw) {
 
     let result = raw.replace(/\[[^[\]]*\]/g, ' ');
     result = result.replace(/(?:💾\s*)?\b\d+(\.\d+)?\s?(GB|MB|KB|TB)\b/gi, ' ');
+    result = result.replace(HOST_RE, ' ');
+    // Parenthetical release groups go, bare years stay: "(2026)" survives,
+    // "(WOU-4 Remux HDR DV | Hindi FSL | 4KHDHub" does not. Unclosed trailing
+    // groups (common in addon data) are dropped the same way, years excepted.
+    result = result.replace(/\([^()]*\)/g, (group) => (/^\(\d{4}\)$/.test(group.trim()) ? group : ' '));
+    result = result.replace(/\((?!\d{4}\s*$)[^()]*$/, ' ');
+    result = result.replace(GROUP_TAGS_RE, ' ');
     result = result.replace(/\s+/g, ' ').trim();
+    result = result.replace(/^(?:[|\-:]\s*)+/, '').replace(/(?:\s*[|\-:])+$/, '');
 
     if (result === '') {
         return maskStreamName(raw);
