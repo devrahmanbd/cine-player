@@ -53,7 +53,7 @@ const LibItem = ({ _id, type, removable, notifications, watched, detailsVideosFi
         }));
     }, [_id, removable, progress, playerHref, detailsHref, watched, localWatched]);
 
-    const optionOnSelect = React.useCallback((event) => {
+    const handleOptionSelect = React.useCallback((event) => {
         if (typeof optionOnSelect === 'function') {
             optionOnSelect(event);
         }
@@ -132,7 +132,7 @@ const LibItem = ({ _id, type, removable, notifications, watched, detailsVideosFi
             watched={localWatched}
             newVideos={newVideos}
             options={options}
-            optionOnSelect={optionOnSelect}
+            optionOnSelect={handleOptionSelect}
             onPlayClick={typeof playerHref === 'string' && progress > 0 ? onPlayClick : null}
         />
     );
