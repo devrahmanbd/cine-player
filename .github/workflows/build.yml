@@ -42,6 +42,8 @@ jobs:
         run: pnpm test
       - name: Lint
         run: pnpm lint
+      - name: API tests
+        run: pnpm --dir api test
       - name: Upload Pages preview
         if: (github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false) && github.actor != 'dependabot[bot]'
         uses: actions/upload-artifact@v7
@@ -51,6 +53,30 @@ jobs:
           include-hidden-files: true
           if-no-files-found: error
           retention-days: 7
+          overwrite: true
+
+  # Fork addition: deployable web bundle for VPS deploys (see
+  # scripts/deploy.sh --artifact). Only on development pushes, not PRs.
+  dist:
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/development'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Download Pages preview
+        uses: actions/download-artifact@v8
+        with:
+          name: pages-preview
+          path: build
+      - name: Upload deployable bundle
+        uses: actions/upload-artifact@v7
+        with:
+          name: web-build
+          path: build
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 14
           overwrite: true
 
   deploy:

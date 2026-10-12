@@ -41,12 +41,29 @@ sh scripts/deploy.sh
 ```
 
 What it does, in order: prerequisites → env validation (domain shape,
-strong password) → DNS-vs-host check → `npm run build` → `compose up` →
-waits for internal api health (~2 min budget) → waits for public HTTPS +
-cert (~5 min budget) → prints the admin URL. Re-running is safe. Flags:
+strong password) → DNS-vs-host check → build → compose up → waits for
+internal api health (~2 min budget) → waits for public HTTPS + cert
+(~5 min budget) → prints the admin URL. Re-running is safe. Flags:
 `--check-only` (validate without changing anything),
 `--env-file .env.example.com` (mirrors, see `scripts/mirror.sh`),
 `--profile mysql`, `--skip-build`.
+
+### Building in CI instead (recommended for small VPS)
+
+Webpack builds want ~2GB free RAM. Every push to `development` already
+builds + tests in GitHub Actions (`.github/workflows/build.yml`) and
+uploads the bundle as the `web-build` artifact (14-day retention). To
+deploy without building on the VPS:
+
+```bash
+# on the VPS, once: gh auth login   (needs repo read access)
+sh scripts/deploy.sh --artifact     # pulls latest green bundle, keeps ./build.prev
+sh scripts/deploy.sh --rollback     # restores ./build.prev if a release misbehaves
+```
+
+The artifact path skips `npm run build` only — compose still (re)builds the
+small `api` image and runs every health gate. Rollback swaps the previous
+bundle back and restarts; `./build.failed` keeps the bad one for forensics.
 
 ## Step 3 — First login and content
 

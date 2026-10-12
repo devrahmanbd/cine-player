@@ -4,6 +4,8 @@
 #
 # Usage:
 #   sh scripts/deploy.sh [--env-file .env] [--profile mysql] [--skip-build] [--check-only]
+#   sh scripts/deploy.sh --artifact [--env-file .env] [--profile mysql]
+#   sh scripts/deploy.sh --rollback [--env-file .env] [--profile mysql]
 #
 # Steps: prerequisites -> env validation -> DNS check -> build ->
 # compose up -> wait api healthy -> wait HTTPS+cert -> verify chain.
@@ -14,13 +16,19 @@ ENV_FILE=".env"
 PROFILE=""
 SKIP_BUILD=0
 CHECK_ONLY=0
+ARTIFACT=0
+ROLLBACK=0
 
 usage() {
     echo "usage: sh scripts/deploy.sh [--env-file FILE] [--profile mysql] [--skip-build] [--check-only]"
+    echo "       sh scripts/deploy.sh --artifact [--env-file FILE] [--profile mysql]"
+    echo "       sh scripts/deploy.sh --rollback [--env-file FILE] [--profile mysql]"
     echo "  --env-file   env file with SITE_DOMAIN, ADMIN_PASSWORD, ... (default: .env)"
     echo "  --profile    extra compose profile (e.g. mysql)"
     echo "  --skip-build skip npm run build (reuse ./build)"
     echo "  --check-only run prerequisites + env + DNS checks only, change nothing"
+    echo "  --artifact   fetch ./build from CI (needs gh auth) instead of building locally"
+    echo "  --rollback   restore ./build.prev from the last --artifact swap, then restart"
 }
 
 while [ $# -gt 0 ]; do
@@ -29,6 +37,8 @@ while [ $# -gt 0 ]; do
         --profile) PROFILE="--profile $2"; shift 2 ;;
         --skip-build) SKIP_BUILD=1; shift ;;
         --check-only) CHECK_ONLY=1; shift ;;
+        --artifact) ARTIFACT=1; shift ;;
+        --rollback) ROLLBACK=1; shift ;;
         -h|--help) usage; exit 0 ;;
         *) echo "unknown flag: $1" >&2; usage >&2; exit 2 ;;
     esac
@@ -91,8 +101,28 @@ if [ "$CHECK_ONLY" -eq 1 ]; then
     exit 0
 fi
 
-# --- 3. build ---------------------------------------------------------------
-if [ "$SKIP_BUILD" -eq 0 ]; then
+# --- 3. build (local) / artifact (CI) / rollback ------------------------------
+if [ "$ROLLBACK" -eq 1 ]; then
+    [ -d build.prev ] || fail "no ./build.prev to roll back to"
+    rm -rf build.failed
+    mv build build.failed
+    mv build.prev build
+    info "restored ./build.prev (previous bundle kept at ./build.failed)"
+elif [ "$ARTIFACT" -eq 1 ]; then
+    command -v gh >/dev/null 2>&1 || fail "gh CLI not found (needed for --artifact)"
+    RUN_ID=$(gh run list --branch development --workflow build.yml --status success --limit 1 --json databaseId --jq '.[0].databaseId' 2>/dev/null) || fail "no successful development build found (gh run list failed — check gh auth status)"
+    [ -n "$RUN_ID" ] || fail "no successful development build found yet"
+    info "fetching CI bundle from run $RUN_ID..."
+    rm -rf .build.next
+    mkdir -p .build.next
+    gh run download "$RUN_ID" --name web-build --dir .build.next || fail "artifact download failed"
+    [ -f .build.next/index.html ] || fail "artifact has no index.html (bad bundle)"
+    ls .build.next/*/scripts/main.js >/dev/null 2>&1 || fail "artifact has no scripts/main.js (bad bundle)"
+    rm -rf build.prev
+    [ -d build ] && mv build build.prev
+    mv .build.next build
+    info "CI bundle installed (previous kept at ./build.prev; --rollback restores it)"
+elif [ "$SKIP_BUILD" -eq 0 ]; then
     info "building web bundle..."
     npm run build
 else
