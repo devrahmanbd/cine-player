@@ -4,6 +4,10 @@ services:
     build: ./api
     environment:
       - PORT=3001
+      # Container must listen on all interfaces: `web` reaches it via docker
+      # DNS (api:3001 = container eth0 IP, not loopback). No ports are
+      # published so it stays internal-only. Bare-metal defaults to 127.0.0.1.
+      - BIND_HOST=${BIND_HOST:-0.0.0.0}
       - DB_DRIVER=${DB_DRIVER:-sqlite}
       - DB_PATH=${DB_PATH:-/data/brand.db}
       - UPLOADS_DIR=/data/uploads

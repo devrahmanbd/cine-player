@@ -52,7 +52,13 @@ function readJson(request, limit) {
 
 function send(response, status, body, headers = {}) {
     const payload = JSON.stringify(body);
-    response.writeHead(status, { 'content-type': 'application/json', ...headers });
+    response.writeHead(status, {
+        'content-type': 'application/json',
+        'x-content-type-options': 'nosniff',
+        'referrer-policy': 'no-referrer',
+        'x-frame-options': 'SAMEORIGIN',
+        ...headers,
+    });
     response.end(payload);
 }
 
@@ -235,7 +241,7 @@ async function checkOtpCode(db, email, code) {
     return { row };
 }
 
-function startServer({ port = 3001, db, uploadsDir } = {}) {
+function startServer({ port = 3001, host = process.env.BIND_HOST || '127.0.0.1', db, uploadsDir } = {}) {
     const sessions = new Map();
     // Single-instance sessions: in-memory Map (restart logs admins out).
     // Past 1 replica needs sticky sessions or a shared store.
@@ -247,6 +253,9 @@ function startServer({ port = 3001, db, uploadsDir } = {}) {
     const otpRequestIpLimits = new Map();
     const verifyEmailLimits = new Map();
     const verifyIpLimits = new Map();
+    const availabilityLimits = new Map();
+    const addonsLimits = new Map();
+    const addonManifestLimits = new Map();
     const uploads = uploadsDir || process.env.UPLOADS_DIR || path.join(__dirname, 'uploads');
     fs.mkdirSync(uploads, { recursive: true });
 
@@ -309,6 +318,10 @@ function startServer({ port = 3001, db, uploadsDir } = {}) {
             }
 
             if (request.method === 'GET' && url.pathname === '/api/addons') {
+                const ip = (request.socket && request.socket.remoteAddress) || 'unknown';
+                if (!takeToken(addonsLimits, ip, 120, 60 * 1000)) {
+                    return send(response, 429, { error: 'rate limited' });
+                }
                 const rows = await db.query(
                     'SELECT id, manifest_url, name, position FROM addons WHERE enabled = 1 ORDER BY position ASC, id ASC'
                 );
@@ -319,6 +332,10 @@ function startServer({ port = 3001, db, uploadsDir } = {}) {
             // while serving server-side fetches fine. The requested URL must be
             // an enabled admin addon (allowlist) — never an open proxy.
             if (request.method === 'GET' && url.pathname === '/api/addons/manifest') {
+                const ip = (request.socket && request.socket.remoteAddress) || 'unknown';
+                if (!takeToken(addonManifestLimits, ip, 120, 60 * 1000)) {
+                    return send(response, 429, { error: 'rate limited' });
+                }
                 const target = url.searchParams.get('url') || '';
                 const allowed = await db.query(
                     'SELECT id FROM addons WHERE manifest_url = ? AND enabled = 1',
@@ -892,6 +909,10 @@ function startServer({ port = 3001, db, uploadsDir } = {}) {
             }
 
             if (request.method === 'GET' && url.pathname === '/api/availability') {
+                const ip = (request.socket && request.socket.remoteAddress) || 'unknown';
+                if (!takeToken(availabilityLimits, ip, 120, 60 * 1000)) {
+                    return send(response, 429, { error: 'rate limited' });
+                }
                 const raw = url.searchParams.get('keys') || '';
                 const parts = String(raw)
                     .split(',')
@@ -925,12 +946,17 @@ function startServer({ port = 3001, db, uploadsDir } = {}) {
 
             return send(response, 404, { error: 'not found' });
         } catch (error) {
-            return send(response, error.status || 500, { error: error.message || 'server error' });
+            const status = error.status || 500;
+            if (status >= 500) {
+                console.error('api error', error && error.message ? error.message : error);
+                return send(response, 500, { error: 'server error' });
+            }
+            return send(response, status, { error: error.message || 'server error' });
         }
     });
 
     return new Promise((resolve) => {
-        server.listen(port, () => resolve({ server, port: server.address().port }));
+        server.listen(port, host, () => resolve({ server, port: server.address().port, host }));
     });
 }
 
@@ -941,8 +967,8 @@ if (require.main === module) {
         adminPassword: process.env.ADMIN_PASSWORD,
         siteName: process.env.SITE_NAME,
     })
-        .then(() => startServer({ port: Number(process.env.PORT || 3001), db }))
-        .then(({ port }) => console.log(`api listening on ${port}`))
+        .then(() => startServer({ port: Number(process.env.PORT || 3001), host: process.env.BIND_HOST || '127.0.0.1', db }))
+        .then(({ port, host }) => console.log(`api listening on ${host}:${port}`))
         .catch((error) => {
             console.error(error);
             process.exit(1);

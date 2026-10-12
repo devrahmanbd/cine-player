@@ -35,7 +35,7 @@ threadLoader.warmup(
 
 module.exports = (env, argv) => ({
     mode: argv.mode,
-    devtool: argv.mode === 'production' ? 'source-map' : 'eval-source-map',
+    devtool: argv.mode === 'production' ? false : 'eval-source-map',
     entry: {
         main: './src/index.js',
         worker: './node_modules/@stremio/stremio-core-web/worker.js'
