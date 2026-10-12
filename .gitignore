@@ -1,5 +1,9 @@
 /node_modules
 /build
+.env
+.env.*
+!.env.example
+!.env.prod.example
 /yarn.lock
 /npm-debug.log
 .DS_Store
