@@ -1,5 +1,8 @@
 /node_modules
+/api/node_modules/
+/api/package-lock.json
 /build
+.hallmark/
 .env
 .env.*
 !.env.example
