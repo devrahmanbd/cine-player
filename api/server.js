@@ -251,6 +251,7 @@ function startServer({ port = 3001, host = process.env.BIND_HOST || '127.0.0.1',
     const loginIpLimits = new Map();
     const otpRequestEmailLimits = new Map();
     const otpRequestIpLimits = new Map();
+    const newsletterIpLimits = new Map();
     const verifyEmailLimits = new Map();
     const verifyIpLimits = new Map();
     const availabilityLimits = new Map();
@@ -697,6 +698,24 @@ function startServer({ port = 3001, host = process.env.BIND_HOST || '127.0.0.1',
                     target.type,
                     target.id,
                 ]);
+                return send(response, 200, { ok: true });
+            }
+
+            // Newsletter: optional email collection for domain-move notices.
+            // No account, no OTP — just store the address. Idempotent per email.
+            if (request.method === 'POST' && url.pathname === '/api/newsletter') {
+                const body = await readJson(request, 8 * 1024);
+                const email = normalizeEmail(body.email);
+                if (!validEmail(email)) return send(response, 400, { error: 'bad input' });
+                const ip = (request.socket && request.socket.remoteAddress) || 'unknown';
+                if (!takeToken(newsletterIpLimits, ip, 10, 3600 * 1000)) {
+                    return send(response, 429, { error: 'rate limited' });
+                }
+                const source = typeof body.source === 'string' && body.source.length <= 32 ? body.source : 'popup';
+                await db.query(
+                    'INSERT OR IGNORE INTO newsletter_emails (email, source, created_at) VALUES (?, ?, ?)',
+                    [email, source, new Date().toISOString()]
+                );
                 return send(response, 200, { ok: true });
             }
 

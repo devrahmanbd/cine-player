@@ -14,6 +14,7 @@ const DeepLinkHandler = require('./DeepLinkHandler');
 const { default: ShellOpenHandler } = require('./ShellOpenHandler');
 const { default: ShortcutsModal } = require('./ShortcutsModal');
 const { default: GamepadModal } = require('./GamepadModal');
+const NewsletterPopup = require('stremio/components/NewsletterPopup');
 const { default: useInterfaceScale } = require('./useInterfaceScale');
 const styles = require('./styles');
 require('../components/LinuxChrome/linux-vars.less');
@@ -24,7 +25,7 @@ const NAVIGATE_TABS_ROUTES = ['/', '/discover', '/library', '/calendar', '/setti
 const App = () => {
     const core = useCore();
     const profile = useProfile();
-    const { user: localUser, loading: localAuthLoading, error: localAuthError } = useLocalAuth();
+    const { user: localUser } = useLocalAuth();
     const changeInterfaceScale = useInterfaceScale(profile);
     const { i18n } = useTranslation();
     const { shell } = usePlatform();
@@ -134,20 +135,12 @@ const App = () => {
     }, [profile.auth, core.transport]);
 
     React.useEffect(() => {
-        if (localAuthLoading) {
-            return;
-        }
-        if (localUser === null && localAuthError === '') {
-            // Our session probe has not settled yet; wait for it instead of
-            // flashing logged-out users through the app.
-            return;
-        }
-        if (localUser === null && location.pathname !== '/intro' && location.pathname !== '/admin') {
-            navigate('/intro', { replace: true });
-        } else if (localUser !== null && location.pathname === '/intro') {
+        // The app is fully open: no login gate. Only bounce already-signed-in
+        // users off the /intro (auth) page back to the home screen.
+        if (localUser !== null && location.pathname === '/intro') {
             navigate('/', { replace: true });
         }
-    }, [localUser, localAuthLoading, localAuthError, location.pathname, navigate]);
+    }, [localUser, location.pathname, navigate]);
 
     React.useEffect(() => {
         const onWindowFocus = () => {
@@ -204,6 +197,7 @@ const App = () => {
                                     <SearchParamsHandler />
                                     <DeepLinkHandler />
                                     <ShellOpenHandler />
+                                    <NewsletterPopup />
                                     <ProtectedRoutes />
                                 </DiscordProvider>
                             </FullscreenProvider>

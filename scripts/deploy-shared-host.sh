@@ -95,7 +95,9 @@ else
 fi
 
 echo "== [6/6] restart + health =="
-pm2 start "$ECO" --update-env 2>/dev/null || true
+# startOrReload: a plain `pm2 start` skips already-running apps, so code/env
+# updates would never apply on redeploys.
+pm2 startOrReload "$ECO" --update-env >/dev/null 2>&1 || true
 pm2 save --force >/dev/null 2>&1 || true
 sleep 3
 ok=0

@@ -79,3 +79,9 @@ CREATE TABLE IF NOT EXISTS progress (
     updated_at TEXT NOT NULL,
     PRIMARY KEY (user_id, type, meta_id)
 );
+CREATE TABLE IF NOT EXISTS newsletter_emails (
+    id INTEGER PRIMARY KEY,
+    email TEXT NOT NULL UNIQUE,
+    source TEXT NOT NULL DEFAULT 'popup',
+    created_at TEXT NOT NULL
+);

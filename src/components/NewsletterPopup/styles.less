@@ -1,0 +1,114 @@
+.newsletter-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.55);
+}
+
+.newsletter-card {
+    position: relative;
+    width: 24em;
+    max-width: calc(100vw - 2em);
+    padding: 2em;
+    border-radius: var(--border-radius, 0.5em);
+    background: var(--modal-background-color, #282830);
+    box-shadow: 0 1em 3em rgba(0, 0, 0, 0.6);
+}
+
+.newsletter-close {
+    position: absolute;
+    top: 0.5em;
+    right: 0.6em;
+    border: none;
+    background: none;
+    color: var(--primary-foreground-color, #fff);
+    font-size: 1.6em;
+    line-height: 1;
+    opacity: 0.6;
+    cursor: pointer;
+
+    &:hover {
+        opacity: 1;
+    }
+}
+
+.newsletter-title {
+    font-size: 1.4em;
+    font-weight: 700;
+    color: var(--primary-foreground-color, #fff);
+    margin-bottom: 0.5em;
+}
+
+.newsletter-text {
+    font-size: 1em;
+    color: var(--primary-foreground-color, #fff);
+    opacity: 0.75;
+    margin: 0 0 1.2em;
+    line-height: 1.45;
+}
+
+.newsletter-input {
+    width: 100%;
+    padding: 0.75em 0.9em;
+    border-radius: var(--border-radius, 0.4em);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    background: var(--primary-background-color, #1a1a20);
+    color: var(--primary-foreground-color, #fff);
+    font-size: 1em;
+    outline: none;
+    box-sizing: border-box;
+
+    &:focus {
+        border-color: var(--primary-accent-color, #7b5cdf);
+    }
+}
+
+.newsletter-error {
+    margin-top: 0.6em;
+    font-size: 0.9em;
+    color: #e5484d;
+}
+
+.newsletter-actions {
+    display: flex;
+    align-items: center;
+    gap: 1em;
+    margin-top: 1.2em;
+}
+
+.newsletter-submit {
+    flex: none;
+    border: none;
+    padding: 0.7em 1.4em;
+    border-radius: var(--border-radius, 0.4em);
+    background: var(--primary-accent-color, #7b5cdf);
+    color: var(--primary-foreground-color, #fff);
+    font-size: 1em;
+    font-weight: 600;
+    cursor: pointer;
+
+    &:hover {
+        filter: brightness(1.1);
+    }
+}
+
+.newsletter-no {
+    border: none;
+    background: none;
+    color: var(--primary-foreground-color, #fff);
+    opacity: 0.6;
+    font-size: 0.95em;
+    cursor: pointer;
+
+    &:hover {
+        opacity: 1;
+        text-decoration: underline;
+    }
+}
+
+.newsletter-done {
+    text-align: center;
+}
