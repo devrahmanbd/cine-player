@@ -129,3 +129,14 @@ EOF
 fi
 
 echo "DEPLOY_OK  web=:8080 api=:3001 engine=:11470 (loopback)  https://$(curl -s -m 3 ifconfig.me || echo '<ip>:8080')"
+
+# public edge: the host Apache serves this vhost; .htaccess proxies everything to the
+# container's eth0 IP:8080 (host's 127.0.0.1 is NOT the container's loopback).
+# TLS is panel-managed (Let's Encrypt, auto-renew).
+CT_IP="$(hostname -I 2>/dev/null | awk '{print $1}')"
+if [ -n "$CT_IP" ]; then
+    mkdir -p "$HOME/public_html"
+    printf 'RewriteEngine On\nRewriteRule ^(.*)$ http://%s:8080/$1 [P,L]\n' "$CT_IP" > "$HOME/public_html/.htaccess"
+    echo "edge: Apache -> $CT_IP:8080 (.htaccess written)"
+fi
+pm2 save --force >/dev/null 2>&1 || true

@@ -1,19 +1,16 @@
 # Shared-Host Deployment (cPanel jailshell / container)
 
 Player stack on shared hosting with **only Node + ffmpeg** — no root, no Docker, no cron.
-Live since 2026-10-28 on `cinemavi1@65.181.116.46` (AlexHost container, Ubuntu 24.04).
+Live since 2026-10-28: **https://cinemavilla.cc** (AlexHost container `cinemavi1@65.181.116.46`, Ubuntu 24.04).
 
 ## Architecture
 
 ```
-public HTTPS          loopback (127.0.0.1)
-Cloudflare tunnel ──▶ native-web :8080 ──▶ api    :3001   (SQLite, rate limits, OTP auth)
- (cloudflared,          (static SPA        └▶ engine :11470  (transmux, system ffmpeg)
-  outbound-only)          + proxy)
+public HTTPS (LE cert)   Apache vhost (host)          loopback (container)
+cinemavilla.cc ──▶ .htaccess [P] ──▶ 10.169.2.39:8080 native-web ──▶ api    :3001  (SQLite, OTP, rate limits)
+                                    (container eth0)    (SPA+proxy)   └▶ engine :11470  (transmux, ffmpeg 6.1.1)
+Cloudflare quick tunnel ─────────────────────────────▶ same native-web (backup access, watchdog-kept)
 ```
-
-Everything binds loopback except native-web; the only ingress is the outbound
-Cloudflare tunnel — the container exposes **no public ports** (8080 firewalled).
 
 ## Layout (server)
 
@@ -66,15 +63,15 @@ containing the pattern kills itself (exit 255). Use exact names (`pkill -x
 cloudflared`) or bracket regex (`pgrep -f 'watch[d]og'`) and keep the pattern
 out of every other argument of the same command.
 
-## Tunnel & domain
+## Domain & TLS (solved)
 
-- Quick tunnel (current): URL changes on every restart; check
-  `grep -oE 'https://[a-z0-9-]+\.trycloudflare\.com' ~/apps/cf-tunnel.log`
-- Watchdog restarts it automatically if it dies.
-- **Custom domain**: create a named tunnel (`cloudflared tunnel create linuxstream`,
-  route DNS CNAME `watch.extramovies.org` → `<uuid>.cfargotunnel.com` at
-  cloudman.one), then point the watchdog/deploy at the named tunnel so the URL
-  stays fixed. Alternative: panel Apache vhost reverse-proxy to 127.0.0.1:8080.
+- `cinemavilla.cc` A → 65.181.116.46; host Apache vhost serves this container's
+  `~/public_html` — deploy writes `.htaccess` with `[P]` proxy to the container's
+  eth0 IP (`hostname -I`) :8080. Host's 127.0.0.1 ≠ container loopback — never
+  proxy to 127.0.0.1 from .htaccess.
+- TLS: panel-managed Let's Encrypt (auto-renew; renewed 2026-10-27).
+- Backup access: Cloudflare quick tunnel (URL in `~/apps/cf-tunnel.log`; changes
+  on restart — watchdog revives it). Named tunnel only if Apache edge ever breaks.
 
 ## Recovery after container restart
 
