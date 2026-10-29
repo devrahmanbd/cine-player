@@ -11,6 +11,7 @@ const { resolveAdblockMode, readFirstSeen, writeFirstSeen, isActionableKind } = 
 const { syncManagedAddons } = require('./managedAddons');
 const { ensureDefaultStreamingServer } = require('./defaultStreaming');
 const { useCore } = require('stremio/core');
+const { canUseCachedBrand, mergeBrand, BRAND_FIELDS } = require('./brandState');
 
 const DEFAULT_BRAND = {
     site_name: 'LinuxStream',
@@ -20,6 +21,30 @@ const DEFAULT_BRAND = {
     theme: 'gnome-dark',
     accent: '#E95420',
 };
+
+// Last-good brand persisted so a slow/failed boot fetch never regresses the
+// visible identity to the compiled-in defaults.
+const BRAND_CACHE_KEY = 'branding-cache-v1';
+
+function readCachedBrand() {
+    try {
+        const raw = window.localStorage.getItem(BRAND_CACHE_KEY);
+        if (!raw) return DEFAULT_BRAND;
+        const parsed = JSON.parse(raw);
+        if (!canUseCachedBrand(parsed)) return DEFAULT_BRAND;
+        return mergeBrand(DEFAULT_BRAND, parsed);
+    } catch {
+        return DEFAULT_BRAND;
+    }
+}
+
+function writeCachedBrand(brand) {
+    try {
+        window.localStorage.setItem(BRAND_CACHE_KEY, JSON.stringify(brand));
+    } catch {
+        // Private mode etc. — caching is best-effort.
+    }
+}
 
 const BrandingContext = React.createContext({ brand: DEFAULT_BRAND, ads: {}, ready: false });
 
@@ -61,19 +86,60 @@ function applyBrand(brand) {
 }
 
 const BrandingProvider = ({ children }) => {
-    const [state, setState] = React.useState({ brand: DEFAULT_BRAND, ads: {}, ready: false });
+    const [state, setState] = React.useState(() => ({
+        brand: readCachedBrand(),
+        ads: {},
+        ready: false,
+    }));
+    // Snapshot the boot-time brand so the mount effect stays dependency-free.
+    const bootBrand = React.useRef(state.brand);
     const [wallDismissed, setWallDismissed] = React.useState(false);
     const [adblockMode, setAdblockMode] = React.useState('none');
     useAdminAdGuard();
     const core = useCore();
     const managedSyncStarted = React.useRef(false);
 
+    // Re-fetch branding when the tab becomes visible again, so an admin save
+    // shows up without a hard reload. Throttled to at most one check / 15s.
+    const lastRefresh = React.useRef(0);
+    React.useEffect(() => {
+        const refresh = () => {
+            if (document.visibilityState !== 'visible') return;
+            const now = Date.now();
+            if (now - lastRefresh.current < 15000) return;
+            lastRefresh.current = now;
+            fetchJson('/api/branding', 8000).then((brand) => {
+                if (!canUseCachedBrand(brand)) return;
+                const nextBrand = mergeBrand(DEFAULT_BRAND, brand);
+                writeCachedBrand(nextBrand);
+                applyBrand(nextBrand);
+                // Functional form: only update `brand`, never clobber `ads`.
+                setState((prev) => {
+                    if (prev.brand.site_name === nextBrand.site_name
+                        && prev.brand.tagline === nextBrand.tagline
+                        && prev.brand.logo_url === nextBrand.logo_url
+                        && prev.brand.favicon_url === nextBrand.favicon_url
+                        && prev.brand.accent === nextBrand.accent
+                        && prev.brand.theme === nextBrand.theme) {
+                        return prev;
+                    }
+                    return { ...prev, brand: nextBrand };
+                });
+            });
+        };
+        document.addEventListener('visibilitychange', refresh);
+        return () => document.removeEventListener('visibilitychange', refresh);
+    }, []);
+
     React.useEffect(() => {
         let cancelled = false;
-        Promise.all([fetchJson('/api/branding', 3000), fetchJson('/api/adslots', 3000)])
+        // Show the cached brand immediately; the network fetch refreshes it.
+        if (bootBrand.current !== DEFAULT_BRAND) applyBrand(bootBrand.current);
+        Promise.all([fetchJson('/api/branding', 8000), fetchJson('/api/adslots', 8000)])
             .then(([brand, slots]) => {
                 if (cancelled) return;
-                const nextBrand = { ...DEFAULT_BRAND, ...(brand || {}) };
+                // A null/failed brand payload must NOT wipe a good cached one.
+                const nextBrand = canUseCachedBrand(brand) ? mergeBrand(DEFAULT_BRAND, brand) : bootBrand.current;
                 const ads = {};
                 for (const slot of Array.isArray(slots) ? slots : []) {
                     if (!slot || typeof slot.slot_key !== 'string') continue;
@@ -85,6 +151,7 @@ const BrandingProvider = ({ children }) => {
                 applyBrand(nextBrand);
                 snapshotBody();
                 injectSiteScripts(ads);
+                writeCachedBrand(nextBrand);
                 setState({ brand: nextBrand, ads, ready: true });
                 detectAdblock()
                     .then((detected) => {
@@ -124,8 +191,9 @@ const BrandingProvider = ({ children }) => {
             })
             .catch(() => {
                 if (cancelled) return;
-                applyBrand(DEFAULT_BRAND);
-                setState({ brand: DEFAULT_BRAND, ads: {}, ready: true });
+                // Keep whatever brand is already showing (cached or compiled);
+                // a network hiccup must never blank or revert the identity.
+                setState((prev) => ({ ...prev, ready: true }));
             });
         return () => {
             cancelled = true;

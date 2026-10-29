@@ -40,6 +40,28 @@ else
     test -f "$PLAYER_DIR/build/index.html" && echo "BUILD_OK $(du -sh "$PLAYER_DIR/build" | cut -f1)"
 fi
 
+echo "== [3b/6] static branding =="
+# Rewrite the build-time title/favicon from the LIVE branding row so the
+# pre-JS first paint (and any fetch that times out) still shows the current
+# brand, not the compiled-in "LinuxStream" defaults.
+BRAND_ROW="$(sqlite3 "$DATA_DIR/brand.db" "SELECT site_name||' - '||trim(tagline)||char(10)||favicon_url FROM branding WHERE id=1" 2>/dev/null || true)"
+if [ -n "$BRAND_ROW" ] && [ -f "$PLAYER_DIR/build/index.html" ]; then
+    BRAND_TITLE="$(printf '%s' "$BRAND_ROW" | head -1)"
+    BRAND_FAVICON="$(printf '%s' "$BRAND_ROW" | sed -n '2p')"
+    python3 - "$PLAYER_DIR/build/index.html" "$BRAND_TITLE" "$BRAND_FAVICON" <<'PY'
+import sys, re
+path, title, favicon = sys.argv[1], sys.argv[2], sys.argv[3]
+html = open(path, encoding='utf-8').read()
+html = re.sub(r'<title>.*?</title>', lambda m: '<title>' + title.replace('&','&amp;').replace('<','&lt;') + '</title>', html, count=1)
+if favicon:
+    html = re.sub(r'(<link rel="icon"[^>]*href=")[^"]*(")', lambda m: m.group(1) + favicon + m.group(2), html, count=1)
+open(path, 'w', encoding='utf-8').write(html)
+print(f'static title -> {title!r}, favicon -> {favicon!r}')
+PY
+else
+    echo "WARN: no branding row or index.html — static title left as compiled default"
+fi
+
 echo "== [4/6] api deps =="
 cd "$PLAYER_DIR/api"
 npm install --omit=dev --no-audit --no-fund --silent
