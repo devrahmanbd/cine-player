@@ -85,3 +85,7 @@ CREATE TABLE IF NOT EXISTS newsletter_emails (
     source TEXT NOT NULL DEFAULT 'popup',
     created_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS ads_settings (
+    id INTEGER PRIMARY KEY,
+    master_enabled INTEGER NOT NULL DEFAULT 0
+);

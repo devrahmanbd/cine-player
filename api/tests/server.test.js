@@ -35,8 +35,55 @@ describe('server', () => {
         assert.equal(health.ok, true);
         const brand = await (await fetch(`${base}/api/branding`)).json();
         assert.equal(brand.site_name, 'TestStream');
-        const slots = await (await fetch(`${base}/api/adslots`)).json();
-        assert.equal(slots.length, 10);
+        const adslots = await (await fetch(`${base}/api/adslots`)).json();
+        assert.equal(adslots.master, 0);
+        assert.equal(adslots.slots.length, 10);
+    });
+
+    it('ad slots master toggle requires auth', async () => {
+        const denied = await fetch(`${base}/api/adslots`, {
+            method: 'PUT',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ master: 1 }),
+        });
+        assert.equal(denied.status, 401);
+    });
+
+    it('master toggle round-trips and stays numeric', async () => {
+        const login = await fetch(`${base}/api/admin/login`, {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ username: 'root', password: 's3cret!' }),
+        });
+        const cookie = login.headers.get('set-cookie').split(';')[0];
+        const on = await (
+            await fetch(`${base}/api/adslots`, {
+                method: 'PUT',
+                headers: { 'content-type': 'application/json', cookie },
+                body: JSON.stringify({ master: 1 }),
+            })
+        ).json();
+        assert.equal(on.master, 1);
+        assert.equal(typeof on.master, 'number');
+        const seen = await (await fetch(`${base}/api/adslots`)).json();
+        assert.equal(seen.master, 1);
+        const off = await (
+            await fetch(`${base}/api/adslots`, {
+                method: 'PUT',
+                headers: { 'content-type': 'application/json', cookie },
+                body: JSON.stringify({ master: 0 }),
+            })
+        ).json();
+        assert.equal(off.master, 0);
+        const seenOff = await (await fetch(`${base}/api/adslots`)).json();
+        assert.equal(seenOff.master, 0);
+    });
+
+    it('adTypes map matches the seeded slot keys', () => {
+        const { SLOT_KEYS } = require('../seed');
+        const { AD_TYPES } = require('../../src/branding/adTypes');
+        const union = AD_TYPES.flatMap((t) => t.slots).sort();
+        assert.deepEqual(union, [...SLOT_KEYS].sort());
     });
 
     it('gates writes behind login', async () => {

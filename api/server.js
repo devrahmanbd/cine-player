@@ -299,12 +299,21 @@ function startServer({ port = 3001, host = process.env.BIND_HOST || '127.0.0.1',
 
             if (request.method === 'GET' && url.pathname === '/api/adslots') {
                 const rows = await db.query('SELECT slot_key, enabled, code FROM adslots');
-                return send(response, 200, rows);
+                const settings = await db.query('SELECT master_enabled FROM ads_settings WHERE id = 1');
+                return send(response, 200, {
+                    master: (settings[0] && settings[0].master_enabled) || 0,
+                    slots: rows,
+                });
             }
 
             if (request.method === 'PUT' && url.pathname === '/api/adslots') {
                 if (!authed) return send(response, 401, { error: 'unauthorized' });
                 const body = await readJson(request, 256 * 1024);
+                if (Object.prototype.hasOwnProperty.call(body, 'master')) {
+                    const master = body.master ? 1 : 0;
+                    await db.query('UPDATE ads_settings SET master_enabled = ? WHERE id = 1', [master]);
+                    return send(response, 200, { master });
+                }
                 if (!SLOT_KEYS.includes(body.slot_key)) return send(response, 400, { error: 'unknown slot' });
                 if (typeof body.code !== 'string' || body.code.length > 20000) {
                     return send(response, 400, { error: 'bad code' });

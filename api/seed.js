@@ -81,6 +81,10 @@ async function seedDefaults(db, { adminUser, adminPassword, siteName } = {}) {
             ]);
         }
     }
+    const adsSettings = await db.query('SELECT id FROM ads_settings WHERE id = 1');
+    if (adsSettings.length === 0) {
+        await db.query('INSERT INTO ads_settings (id, master_enabled) VALUES (1, 0)');
+    }
     const admins = await db.query('SELECT id FROM admins WHERE username = ?', [adminUser || 'admin']);
     if (admins.length === 0) {
         await db.query('INSERT INTO admins (username, password_hash) VALUES (?, ?)', [
