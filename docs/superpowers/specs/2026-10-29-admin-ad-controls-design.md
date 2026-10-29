@@ -107,6 +107,12 @@ function typeActive(slots, typeKey)   // true iff ANY slot of the group has enab
 function togglePlan(slots, typeKey)   // { slot_key: 0|1 } for the whole group = all !typeActive
 ```
 
+Input contract (documented in the module header): `slots` is the **array
+from `GET /api/adslots`** with numeric `enabled` 0/1 — i.e. Admin's
+`cfg.slots` — *not* BrandingContext's boolean-coerced ads map. Helpers use
+`enabled === 1` strictly, so the wrong shape fails loudly (all-off) instead
+of silently half-working.
+
 Semantics: a type reads "on" when at least one of its slots is enabled;
 toggling sets **every** slot in the group to the same fresh value (mixed
 states are normalized by the first click). Union of all group slots must
@@ -117,20 +123,27 @@ lies).
 
 In the boot `Promise.all` handler:
 
-- Destructure `{ master, slots }` from `/api/adslots`.
+- `fetchJson` yields `null` on failure/timeout — destructure with defaults so
+  a dead adslots endpoint cannot skip the brand apply/cached-brand write the
+  way a thrown TypeError would: `const { master = 0, slots = [] } =
+  adPayload || {}` (branding half proceeds exactly as today).
 - Build the per-slot `ads` map as today, then:
   `const ads = master === 1 ? built : {}`.
   This single gate switches off, at once: `injectSiteScripts` (no-op on `{}`),
   every `AdSlot` (missing entry → null), and the smartlink CTA (see §6).
-- `adMasterRef.current = master` — a ref (not state) so both adblock verdict
-  paths read the current value without re-running effects.
+- `const adMasterRef = React.useRef(0)` — initialized to **0** so any
+  `watchAdblock` verdict that fires before the boot fetch resolves (hashchange
+  / 60s tick during the up-to-8s fetch) evaluates "ads off" → no wall flash
+  while state is unknown. Set `adMasterRef.current = master` in the fetch
+  handler — a ref (not state) so both adblock verdict paths read the current
+  value without re-running effects.
 
 Fetch failure keeps today's fail-safe: `ads` stays `{}` → ads off, wall off.
 
 ### 5. Adblock wall fix — pure `resolveWallMode`
 
 New pure function in `src/branding/adblockLogic.js` (existing
-`resolveAdblockMode` stays untouched so its 4 tests stand):
+`resolveAdblockMode` stays untouched so its 6 tests stand):
 
 ```js
 function resolveWallMode({ adsEnabled, detected, actionable, transportOk, authed, firstSeen, now }) {
@@ -148,7 +161,11 @@ rewritten to funnel their existing branches through `resolveWallMode` with
 - boot: `detected` early-return, `isActionableKind(getAdblockKind())`,
   transport-missing branch (`transportOk: false`), `getState('ctx')`
   success (`transportOk: true, authed`), `.catch` (`transportOk: false`);
-- live: same shape, as today.
+- live: same shape, as today;
+- `writeFirstSeen(Date.now())` moves **behind the `adsEnabled` check** in both
+  paths (only stamp the 30-minute grace clock when ads are actually on —
+  otherwise a visitor's grace silently expires while the site runs zero ads
+  and they get `'wall'` instead of `'notice'` on the day ads go live).
 
 Result: master off ⇒ `'none'` for every visitor in every branch; master on ⇒
 behavior identical to today.
@@ -188,8 +205,12 @@ State: `cfg = { master, slots }` from `GET /api/adslots` (null while loading).
   `typeNative: 'Native'`, `typeBanners: 'Banners'`,
   `typeSmartlink: 'Smartlink'`), checkbox from `typeActive(cfg.slots, key)`;
   change → for each slot in the group, `PUT {slot_key, enabled: target,
-  code}` (existing slot payload from state; `Promise.all`), update state,
-  status reload note.
+  code}` with `code` taken from a **last-GET snapshot ref** (not the live
+  textarea state — an in-progress Advanced edit must never be persisted as a
+  side effect of clicking a type checkbox), `Promise.all`, update state,
+  status reload note. On any PUT failure: re-`GET /api/adslots` to rebuild
+  `cfg` from server truth (some slots may already have persisted — the UI
+  must not show a pre-click state that lies about the DB).
 - **Advanced** (`<details><summary>{STR.advanced}</summary>`): the current
   per-slot textarea + per-slot save, unchanged, all 10 slots — the ad-network
   code escape hatch.
@@ -245,12 +266,14 @@ Repo checks (existing suites, all must stay green): `npm test` (jest),
    - `/#/admin` → Ads tab shows master switch, 5 type rows, collapsed
      Advanced with the existing textareas + saved codes intact.
    - Flip master ON + Popunder ON → reload site → `script[data-adslot="popunder"]`
-     present in `<head>`; flip back OFF → absent after reload; DB restored to
-     master=0 (site must not be left running unintended ads).
+     present in `<head>`; flip back OFF → absent after reload; **restore both
+     switches**: master → 0 *and* the Popunder type → 0 (an enabled slot
+     under `master=0` is inert today but would go live on the next master
+     flip — leave the DB exactly as found: all off, master off), unless the
+     user asks to go live.
    - Smartlink: temporarily enable + valid URL already stored
      (`https://directyp.org/...`) → Board renders the CTA anchor with correct
-     `href`; disable again → CTA gone. (Leave state exactly as the user had
-     it: all off, master off, unless the user asks to go live.)
+     `href`; disable again → CTA gone (included in the same "all off" restore).
    - Console: no JS errors on Board/admin.
 4. Adblock wall: real-blocker behavior cannot be simulated in the MCP browser;
    covered by the `resolveWallMode` unit matrix + both call paths passing
@@ -268,8 +291,8 @@ Repo checks (existing suites, all must stay green): `npm test` (jest),
   (`Promise.all`), admin-only, no rate limit on this route today; acceptable.
 - **Wall never re-evaluates master mid-session**: `adMasterRef` updates only
   on boot fetch — consistent with the "reload to see changes" rule.
-- **Adsterra code preservation**: type toggles PUT the existing `code` from
-  state verbatim; no code is generated or altered by the panel.
+- **Adsterra code preservation**: type toggles PUT the last-GET snapshot
+  `code` verbatim; no code is generated or altered by the panel.
 
 ## Out-of-scope follow-ups (recorded, not built)
 
