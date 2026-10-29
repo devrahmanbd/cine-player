@@ -2097,5 +2097,6 @@
 	"NEWSLETTER_NO": "No thanks",
 	"NEWSLETTER_ERROR": "Couldn't save — try again.",
 	"NEWSLETTER_DONE_TITLE": "You're on the list",
-	"NEWSLETTER_DONE_BODY": "If this domain ever moves, you'll get the new URL by email."
+	"NEWSLETTER_DONE_BODY": "If this domain ever moves, you'll get the new URL by email.",
+	"SMARTLINK_CTA": "Support us"
 }

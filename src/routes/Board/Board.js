@@ -12,6 +12,7 @@ const { default: useLiveTvContinueWatching } = require('./useLiveTvContinueWatch
 const styles = require('./styles');
 const { default: StreamingServerWarning } = require('./StreamingServerWarning');
 const AdSlot = require('../../components/AdSlot/AdSlot');
+const SmartlinkCTA = require('../../components/SmartlinkCTA/SmartlinkCTA');
 const Billboard = require('../../components/Netflix/Billboard');
 
 const THRESHOLD = 5;
@@ -308,6 +309,7 @@ const Board = () => {
                             }
                         }
                     })}
+                    <SmartlinkCTA />
                 </div>
             </MainNavBars>
             {
