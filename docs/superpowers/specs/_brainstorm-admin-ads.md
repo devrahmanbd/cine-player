@@ -10,8 +10,7 @@ Source: obra/brainstorming skill. Update status as each item completes.
   - Q3 smartlink → "Smart system to avoid blocker, and get more monetization value - money"
 - [x] 4. Propose 2-3 approaches — A layered (rec) / B +proxy / C campaign-system. **User chose A: "easiest and quickest method"** (B deferred)
 - [x] 5. Present design — presented; smartlink debated → Adsterra's own format pages (user-supplied) confirm 5-format lineup parity → **keep smartlink + Board CTA**. User: "complete it" = approval + delegate the rest of the flow
-- [ ] 6. Write design doc → docs/superpowers/specs/2026-10-29-admin-ad-controls-design.md, commit
-- [ ] 6. Write design doc → docs/superpowers/specs/YYYY-MM-DD-admin-ad-controls-design.md, commit
-- [ ] 7. Spec review loop (spec-document-reviewer subagent, max 5 iterations)
-- [ ] 8. User reviews written spec
-- [ ] 9. Invoke writing-plans skill (terminal state — no implementation skills before this)
+- [x] 6. Design doc written → docs/superpowers/specs/2026-10-29-admin-ad-controls-design.md, committed (ad8b5566)
+- [x] 7. Spec review loop — iteration 1: PASS w/ 8 minors (all fixed); iteration 2: PASS (1 stale-phrase fix, 06c06227)
+- [~] 8. User spec review — user instructed "complete it" (delegated); spec committed for their reference, proceeding on that authority
+- [x] 9. writing-plans skill invoked → plan written + self-reviewed → docs/superpowers/plans/2026-10-29-admin-ad-controls.md (6 tasks). Execution method: user's "complete it" = native in-session (executing-plans)
