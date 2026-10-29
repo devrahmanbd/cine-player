@@ -1,4 +1,6 @@
 // Copyright (C) 2026 stremio-linux fork. GPL-2.0.
+/* global describe, test, expect */
+
 const { AD_TYPES, typeActive, togglePlan } = require('../adTypes');
 
 const SLOT_KEYS = [
@@ -15,13 +17,13 @@ const SLOT_KEYS = [
 ];
 
 describe('adTypes', () => {
-    it('covers every slot exactly once', () => {
+    test('covers every slot exactly once', () => {
         const union = AD_TYPES.flatMap((t) => t.slots).sort();
         expect(union).toEqual([...SLOT_KEYS].sort());
         expect(AD_TYPES.map((t) => t.key)).toEqual(['popunder', 'socialbar', 'native', 'banners', 'smartlink']);
     });
 
-    it('typeActive: none/one/all', () => {
+    test('typeActive: none/one/all', () => {
         const bannerKeys = AD_TYPES.find((t) => t.key === 'banners').slots;
         const mk = (enabledVals) => bannerKeys.map((k, i) => ({ slot_key: k, enabled: enabledVals[i] }));
         expect(typeActive(mk([0, 0, 0, 0, 0, 0]), 'banners')).toBe(false);
@@ -29,7 +31,7 @@ describe('adTypes', () => {
         expect(typeActive(mk([1, 1, 1, 1, 1, 1]), 'banners')).toBe(true);
     });
 
-    it('togglePlan: off -> all 1', () => {
+    test('togglePlan: off -> all 1', () => {
         const bannerKeys = AD_TYPES.find((t) => t.key === 'banners').slots;
         const slots = bannerKeys.map((k) => ({ slot_key: k, enabled: 0 }));
         const plan = togglePlan(slots, 'banners');
@@ -37,7 +39,7 @@ describe('adTypes', () => {
         for (const k of bannerKeys) expect(plan[k]).toBe(1);
     });
 
-    it('togglePlan: on -> all 0 and mixed normalizes to all 0', () => {
+    test('togglePlan: on -> all 0 and mixed normalizes to all 0', () => {
         const bannerKeys = AD_TYPES.find((t) => t.key === 'banners').slots;
         const mk = (enabledVals) => bannerKeys.map((k, i) => ({ slot_key: k, enabled: enabledVals[i] }));
         for (const plan of [togglePlan(mk([1, 1, 1, 1, 1, 1]), 'banners'), togglePlan(mk([1, 1, 0, 0, 0, 0]), 'banners')]) {

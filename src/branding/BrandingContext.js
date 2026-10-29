@@ -7,7 +7,7 @@ const { injectSiteScripts, snapshotBody, purgeNonAppNodes, isAdminRoute } = requ
 const { detectAdblock, watchAdblock, getAdblockKind } = require('./adblockDetector');
 const { AdblockWall } = require('./AdblockWall');
 const ErrorBoundary = require('../components/ErrorBoundary/ErrorBoundary');
-const { resolveAdblockMode, readFirstSeen, writeFirstSeen, isActionableKind } = require('./adblockLogic');
+const { resolveWallMode, readFirstSeen, writeFirstSeen, isActionableKind } = require('./adblockLogic');
 const { syncManagedAddons } = require('./managedAddons');
 const { ensureDefaultStreamingServer } = require('./defaultStreaming');
 const { useCore } = require('stremio/core');
@@ -93,6 +93,10 @@ const BrandingProvider = ({ children }) => {
     }));
     // Snapshot the boot-time brand so the mount effect stays dependency-free.
     const bootBrand = React.useRef(state.brand);
+    // Master ads switch from /api/adslots. Starts 0 (ads off) so any adblock
+    // verdict firing before the boot fetch resolves cannot flash a wall while
+    // the ads state is still unknown.
+    const adMasterRef = React.useRef(0);
     const [wallDismissed, setWallDismissed] = React.useState(false);
     const [adblockMode, setAdblockMode] = React.useState('none');
     useAdminAdGuard();
@@ -136,18 +140,25 @@ const BrandingProvider = ({ children }) => {
         // Show the cached brand immediately; the network fetch refreshes it.
         if (bootBrand.current !== DEFAULT_BRAND) applyBrand(bootBrand.current);
         Promise.all([fetchJson('/api/branding', 8000), fetchJson('/api/adslots', 8000)])
-            .then(([brand, slots]) => {
+            .then(([brand, adPayload]) => {
                 if (cancelled) return;
+                // A null/failed adslots payload must not skip the brand apply;
+                // ads simply stay off (master defaults to 0).
+                const { master = 0, slots = [] } = adPayload || {};
                 // A null/failed brand payload must NOT wipe a good cached one.
                 const nextBrand = canUseCachedBrand(brand) ? mergeBrand(DEFAULT_BRAND, brand) : bootBrand.current;
-                const ads = {};
+                const built = {};
                 for (const slot of Array.isArray(slots) ? slots : []) {
                     if (!slot || typeof slot.slot_key !== 'string') continue;
-                    ads[slot.slot_key] = {
+                    built[slot.slot_key] = {
                         enabled: slot.enabled === 1,
                         code: typeof slot.code === 'string' ? slot.code : '',
                     };
                 }
+                // One kill point: master off → ads = {} so script injection,
+                // every AdSlot and the smartlink CTA all go dark together.
+                const ads = master === 1 ? built : {};
+                adMasterRef.current = master;
                 applyBrand(nextBrand);
                 snapshotBody();
                 injectSiteScripts(ads);
@@ -156,9 +167,10 @@ const BrandingProvider = ({ children }) => {
                 detectAdblock()
                     .then((detected) => {
                         if (cancelled || !detected) return;
-                        // DNS/network-level blocks are not actionable in the
-                        // browser — never wall those visitors.
-                        if (!isActionableKind(getAdblockKind())) {
+                        const adsEnabled = adMasterRef.current === 1;
+                        // No ads running, or a DNS/network-level block (not
+                        // fixable in-browser) — never wall those visitors.
+                        if (!adsEnabled || !isActionableKind(getAdblockKind())) {
                             setAdblockMode('none');
                             return;
                         }
@@ -166,7 +178,17 @@ const BrandingProvider = ({ children }) => {
                         // Auth is read straight from core state (no model
                         // subscription hooks in this provider).
                         if (!core || !core.transport || !core.transport.getState) {
-                            setAdblockMode('wall');
+                            setAdblockMode(
+                                resolveWallMode({
+                                    adsEnabled,
+                                    detected: true,
+                                    actionable: true,
+                                    transportOk: false,
+                                    authed: false,
+                                    firstSeen: readFirstSeen(),
+                                    now: Date.now(),
+                                })
+                            );
                             return;
                         }
                         core.transport
@@ -175,8 +197,11 @@ const BrandingProvider = ({ children }) => {
                                 if (cancelled) return;
                                 const authed = !!(ctx && ctx.profile && ctx.profile.auth);
                                 setAdblockMode(
-                                    resolveAdblockMode({
+                                    resolveWallMode({
+                                        adsEnabled,
                                         detected: true,
+                                        actionable: true,
+                                        transportOk: true,
                                         authed,
                                         firstSeen: readFirstSeen(),
                                         now: Date.now(),
@@ -184,7 +209,19 @@ const BrandingProvider = ({ children }) => {
                                 );
                             })
                             .catch(() => {
-                                if (!cancelled) setAdblockMode('wall');
+                                if (!cancelled) {
+                                    setAdblockMode(
+                                        resolveWallMode({
+                                            adsEnabled,
+                                            detected: true,
+                                            actionable: true,
+                                            transportOk: false,
+                                            authed: false,
+                                            firstSeen: readFirstSeen(),
+                                            now: Date.now(),
+                                        })
+                                    );
+                                }
                             });
                     })
                     .catch(() => false);
@@ -228,13 +265,24 @@ const BrandingProvider = ({ children }) => {
 
     const applyAdblockVerdict = React.useCallback(
         (detected) => {
-            if (!detected || !isActionableKind(getAdblockKind())) {
+            const adsEnabled = adMasterRef.current === 1;
+            if (!adsEnabled || !detected || !isActionableKind(getAdblockKind())) {
                 setAdblockMode('none');
                 return;
             }
             if (readFirstSeen() === null) writeFirstSeen(Date.now());
             if (!core || !core.transport || !core.transport.getState) {
-                setAdblockMode('wall');
+                setAdblockMode(
+                    resolveWallMode({
+                        adsEnabled,
+                        detected: true,
+                        actionable: true,
+                        transportOk: false,
+                        authed: false,
+                        firstSeen: readFirstSeen(),
+                        now: Date.now(),
+                    })
+                );
                 return;
             }
             core.transport
@@ -242,10 +290,30 @@ const BrandingProvider = ({ children }) => {
                 .then((ctx) => {
                     const authed = !!(ctx && ctx.profile && ctx.profile.auth);
                     setAdblockMode(
-                        resolveAdblockMode({ detected: true, authed, firstSeen: readFirstSeen(), now: Date.now() })
+                        resolveWallMode({
+                            adsEnabled,
+                            detected: true,
+                            actionable: true,
+                            transportOk: true,
+                            authed,
+                            firstSeen: readFirstSeen(),
+                            now: Date.now(),
+                        })
                     );
                 })
-                .catch(() => setAdblockMode('wall'));
+                .catch(() =>
+                    setAdblockMode(
+                        resolveWallMode({
+                            adsEnabled,
+                            detected: true,
+                            actionable: true,
+                            transportOk: false,
+                            authed: false,
+                            firstSeen: readFirstSeen(),
+                            now: Date.now(),
+                        })
+                    )
+                );
         },
         [core]
     );

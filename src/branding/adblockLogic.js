@@ -36,4 +36,16 @@ function isActionableKind(kind) {
     return kind === 'extension' || kind === 'both';
 }
 
-module.exports = { resolveAdblockMode, GRACE_MS, FIRST_SEEN_KEY, readFirstSeen, writeFirstSeen, isActionableKind };
+// Full adblock-verdict decision, one pure entry point for every call path
+// (boot + live re-checks). The master ads switch gates the wall first: a
+// site running zero ads must never demand a whitelist. With ads on, an
+// undeterminable auth state (transport missing/failed) keeps today's
+// fail-closed 'wall'; otherwise the existing grace/notice rules apply.
+function resolveWallMode({ adsEnabled, detected, actionable, transportOk, authed, firstSeen, now }) {
+    if (!adsEnabled) return 'none';
+    if (!detected || !actionable) return 'none';
+    if (!transportOk) return 'wall';
+    return resolveAdblockMode({ detected: true, authed, firstSeen, now });
+}
+
+module.exports = { resolveAdblockMode, resolveWallMode, GRACE_MS, FIRST_SEEN_KEY, readFirstSeen, writeFirstSeen, isActionableKind };
