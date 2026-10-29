@@ -2,7 +2,16 @@
 // Optional newsletter signup popup: collects emails so users can be told the
 // new domain URL when this one moves. Never blocks the app; dismiss is final
 // per browser (localStorage).
+//
+// Rendering notes: the popup wraps itself in react-focus-lock (the same lock
+// the app's modals use) so keyboard/remote navigation stays trapped inside it
+// while it's up, and it stays hidden while any other modal is open — a modal's
+// lock mounting after this popup would otherwise steal focus from the email
+// input on every click (see popupState.js).
 const React = require('react');
+const { useTranslation } = require('react-i18next');
+const FocusLock = require('react-focus-lock').default;
+const { canShowPopup } = require('./popupState');
 const styles = require('./styles');
 
 const STORAGE_KEY = 'newsletter-popup-dismissed';
@@ -23,10 +32,25 @@ function writeDismissed() {
     }
 }
 
+const countOpenModals = () =>
+    typeof document === 'undefined' ? 0 : document.querySelectorAll('.modals-container > *').length;
+
 const NewsletterPopup = () => {
+    const { t } = useTranslation();
     const [dismissed, setDismissed] = React.useState(readDismissed);
+    const [openModals, setOpenModals] = React.useState(countOpenModals);
     const [email, setEmail] = React.useState('');
     const [phase, setPhase] = React.useState('form');
+
+    React.useEffect(() => {
+        if (dismissed) {
+            return undefined;
+        }
+        const update = () => setOpenModals(countOpenModals());
+        update();
+        const id = window.setInterval(update, 500);
+        return () => window.clearInterval(id);
+    }, [dismissed]);
 
     const dismiss = React.useCallback(() => {
         writeDismissed();
@@ -55,55 +79,75 @@ const NewsletterPopup = () => {
             .catch(() => setPhase('error'));
     }, [email, phase]);
 
-    if (dismissed) {
+    React.useEffect(() => {
+        if (!canShowPopup({ dismissed, openModals })) {
+            return undefined;
+        }
+        const onKeyDown = (event) => {
+            if (event.key === 'Escape') {
+                dismiss();
+            }
+        };
+        window.addEventListener('keydown', onKeyDown);
+        return () => window.removeEventListener('keydown', onKeyDown);
+    }, [dismissed, openModals, dismiss]);
+
+    if (!canShowPopup({ dismissed, openModals })) {
         return null;
     }
 
     return (
-        <div className={styles['newsletter-overlay']} role="dialog" aria-label="Domain updates">
+        <FocusLock
+            className={styles['newsletter-overlay']}
+            autoFocus
+            lockProps={{
+                role: 'dialog',
+                'aria-modal': true,
+                'aria-label': 'Domain updates'
+            }}
+        >
             <div className={styles['newsletter-card']}>
                 <button className={styles['newsletter-close']} onClick={dismiss} aria-label="Close">×</button>
                 {
                     phase === 'done' ?
                         <div className={styles['newsletter-done']}>
-                            <div className={styles['newsletter-title']}>You’re on the list</div>
+                            <div className={styles['newsletter-title']}>{t('NEWSLETTER_DONE_TITLE')}</div>
                             <p className={styles['newsletter-text']}>
-                                If this domain ever moves, you’ll get the new URL by email.
+                                {t('NEWSLETTER_DONE_BODY')}
                             </p>
                         </div>
                         :
                         <form onSubmit={onSubmit}>
-                            <div className={styles['newsletter-title']}>Domain updates</div>
+                            <div className={styles['newsletter-title']}>{t('NEWSLETTER_TITLE')}</div>
                             <p className={styles['newsletter-text']}>
-                                This site may change domains from time to time. Leave your email and we’ll
-                                send you the backup URL if it ever moves. No spam.
+                                {t('NEWSLETTER_BODY')}
                             </p>
                             <input
                                 className={styles['newsletter-input']}
                                 type="email"
                                 required
-                                placeholder="you@email.com"
+                                placeholder={t('NEWSLETTER_PLACEHOLDER')}
                                 value={email}
                                 onChange={(event) => setEmail(event.target.value)}
-                                autoFocus
+                                data-autofocus
                             />
                             {
                                 phase === 'error' ?
-                                    <div className={styles['newsletter-error']}>Couldn’t save — try again.</div>
+                                    <div className={styles['newsletter-error']}>{t('NEWSLETTER_ERROR')}</div>
                                     : null
                             }
                             <div className={styles['newsletter-actions']}>
                                 <button type="submit" className={styles['newsletter-submit']}>
-                                    {phase === 'sending' ? 'Saving…' : 'Notify me'}
+                                    {phase === 'sending' ? t('NEWSLETTER_SENDING') : t('NEWSLETTER_SUBMIT')}
                                 </button>
                                 <button type="button" className={styles['newsletter-no']} onClick={dismiss}>
-                                    No thanks
+                                    {t('NEWSLETTER_NO')}
                                 </button>
                             </div>
                         </form>
                 }
             </div>
-        </div>
+        </FocusLock>
     );
 };
 

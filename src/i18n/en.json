@@ -2088,5 +2088,14 @@
 	"LIVE_TV_NO_CHANNELS": "No channels were found",
 	"CLEAR": "Clear",
 	"LOADING": "Loading…",
-	"DELETE": "Delete"
+	"DELETE": "Delete",
+	"NEWSLETTER_TITLE": "Domain updates",
+	"NEWSLETTER_BODY": "This site may change domains from time to time. Leave your email and we'll send you the backup URL if it ever moves. No spam.",
+	"NEWSLETTER_PLACEHOLDER": "you@email.com",
+	"NEWSLETTER_SUBMIT": "Notify me",
+	"NEWSLETTER_SENDING": "Saving…",
+	"NEWSLETTER_NO": "No thanks",
+	"NEWSLETTER_ERROR": "Couldn't save — try again.",
+	"NEWSLETTER_DONE_TITLE": "You're on the list",
+	"NEWSLETTER_DONE_BODY": "If this domain ever moves, you'll get the new URL by email."
 }
