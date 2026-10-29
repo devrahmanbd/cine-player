@@ -43,8 +43,20 @@ fi
 echo "== [3b/6] static branding =="
 # Rewrite the build-time title/favicon from the LIVE branding row so the
 # pre-JS first paint (and any fetch that times out) still shows the current
-# brand, not the compiled-in "LinuxStream" defaults.
-BRAND_ROW="$(sqlite3 "$DATA_DIR/brand.db" "SELECT site_name||' - '||trim(tagline)||char(10)||favicon_url FROM branding WHERE id=1" 2>/dev/null || true)"
+# brand, not the compiled-in "LinuxStream" defaults. python3 (not the sqlite3
+# CLI — absent on this host) reads the row.
+BRAND_ROW="$(python3 - "$DATA_DIR/brand.db" <<'PY' 2>/dev/null || true
+import sqlite3, sys
+try:
+    row = sqlite3.connect(sys.argv[1]).execute(
+        "SELECT site_name||' - '||trim(tagline), IFNULL(favicon_url,'') FROM branding WHERE id=1"
+    ).fetchone()
+    if row and row[0]:
+        print(row[0] + "\n" + row[1])
+except Exception:
+    pass
+PY
+)"
 if [ -n "$BRAND_ROW" ] && [ -f "$PLAYER_DIR/build/index.html" ]; then
     BRAND_TITLE="$(printf '%s' "$BRAND_ROW" | head -1)"
     BRAND_FAVICON="$(printf '%s' "$BRAND_ROW" | sed -n '2p')"
