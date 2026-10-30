@@ -4,13 +4,12 @@ const React = require('react');
 const classnames = require('classnames');
 const useTranslate = require('stremio/common/useTranslate');
 const { default: useVisibleCatalogs } = require('stremio/common/useVisibleCatalogs');
-const { useStreamingServer, useNotifications, withCoreSuspender, useProfile } = require('stremio/common');
+const { useNotifications, withCoreSuspender } = require('stremio/common');
 const { ContinueWatchingItem, EventModal, LiveTvContinueWatchingItem, MainNavBars, MetaItem, MetaRow } = require('stremio/components');
 const useBoard = require('./useBoard');
 const useContinueWatchingPreview = require('./useContinueWatchingPreview');
 const { default: useLiveTvContinueWatching } = require('./useLiveTvContinueWatching');
 const styles = require('./styles');
-const { default: StreamingServerWarning } = require('./StreamingServerWarning');
 const AdSlot = require('../../components/AdSlot/AdSlot');
 const SmartlinkCTA = require('../../components/SmartlinkCTA/SmartlinkCTA');
 const Billboard = require('../../components/Netflix/Billboard');
@@ -82,12 +81,10 @@ const isAvailabilityFresh = (row) => {
 
 const Board = () => {
     const t = useTranslate();
-    const streamingServer = useStreamingServer();
     const continueWatchingPreview = useContinueWatchingPreview();
     const liveTvContinueWatching = useLiveTvContinueWatching();
     const [board, loadBoardRows] = useBoard();
     const notifications = useNotifications();
-    const profile = useProfile();
     const liveTvCatalog = React.useMemo(() => ({
         items: (Array.isArray(liveTvContinueWatching.items) ? liveTvContinueWatching.items : [])
             .map((item) => ({ ...item, posterShape: 'landscape' })),
@@ -96,11 +93,6 @@ const Board = () => {
     const boardCatalogsOffset =
         (continueWatchingItems.length > 0 ? 1 : 0) +
         (liveTvCatalog.items.length > 0 ? 1 : 0);
-    const showStreamingServerWarning = React.useMemo(() => {
-        return streamingServer.settings !== null && streamingServer.settings.type === 'Err' && (
-            isNaN(profile.settings.streamingServerWarningDismissed.getTime()) ||
-            profile.settings.streamingServerWarningDismissed.getTime() < Date.now());
-    }, [profile.settings, streamingServer.settings]);
     const boardCatalogs = React.useMemo(() => {
         return Array.isArray(board.catalogs) ? board.catalogs.filter((catalog) => !isHiddenCatalog(catalog)) : board.catalogs;
     }, [board.catalogs]);
@@ -312,12 +304,6 @@ const Board = () => {
                     <SmartlinkCTA />
                 </div>
             </MainNavBars>
-            {
-                showStreamingServerWarning ?
-                    <StreamingServerWarning className={styles['board-warning-container']} />
-                    :
-                    null
-            }
         </div>
     );
 };

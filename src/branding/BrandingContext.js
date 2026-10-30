@@ -238,6 +238,12 @@ const BrandingProvider = ({ children }) => {
     }, []);
 
     React.useEffect(() => {
+        if (core && core.transport) {
+            ensureDefaultStreamingServer(core);
+        }
+    }, [core]);
+
+    React.useEffect(() => {
         if (!state.ready || managedSyncStarted.current) return;
         managedSyncStarted.current = true;
         let cancelled = false;
