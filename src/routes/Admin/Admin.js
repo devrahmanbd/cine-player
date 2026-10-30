@@ -4,6 +4,7 @@
 const React = require('react');
 const PropTypes = require('prop-types');
 const { clearBlockedPatternsCache } = require('../../branding/streamPatterns');
+const { AD_TYPES, typeActive, togglePlan } = require('../../branding/adTypes');
 
 // Admin is an internal, English-only tool (not part of the translated product
 // surface), so labels live in this map instead of raw JSX text, which the
@@ -58,6 +59,17 @@ const STR = {
     userDisabled: 'User disabled.',
     userEnabled: 'User enabled.',
     passwordUpdated: 'Password updated.',
+    enableAds: 'Enable ads',
+    adsTypes: 'Ad types',
+    typePopunder: 'Popunder',
+    typeSocialbar: 'Social bar',
+    typeNative: 'Native',
+    typeBanners: 'Banners',
+    typeSmartlink: 'Smartlink',
+    advanced: 'Advanced (ad code)',
+    adsSavedReload: 'Saved. Reload the site to see changes.',
+    adsFailedLoad: 'Failed to load ad settings',
+    adsSaveFailed: 'Save failed (session expired? log in again).',
 };
 
 const BRAND_FIELDS = ['site_name', 'tagline', 'logo_url', 'favicon_url', 'theme', 'accent'];
@@ -133,47 +145,156 @@ const BrandForm = () => {
     );
 };
 
+// TYPE_LABELS maps each AD_TYPES key to the matching STR value.
+const TYPE_LABELS = {
+    popunder: STR.typePopunder,
+    socialbar: STR.typeSocialbar,
+    native: STR.typeNative,
+    banners: STR.typeBanners,
+    smartlink: STR.typeSmartlink,
+};
+
 const AdsForm = () => {
-    const [slots, setSlots] = React.useState(null);
+    // cfg: null while loading, then { master: 0|1, slots: [{slot_key, enabled, code}] }
+    const [cfg, setCfg] = React.useState(null);
     const [status, setStatus] = React.useState('');
-    React.useEffect(() => {
-        api('/api/adslots').then(setSlots).catch(() => setStatus('Failed to load ad slots'));
+    // snapshot holds the last-GET slots so type toggles never flush unsaved Advanced edits
+    const snapshot = React.useRef([]);
+
+    const load = React.useCallback(() => {
+        api('/api/adslots')
+            .then((res) => {
+                snapshot.current = res.slots || [];
+                setCfg(res);
+            })
+            .catch(() => setStatus(STR.adsFailedLoad));
     }, []);
+
+    React.useEffect(load, [load]);
+
+    // Master toggle: PUT { master } → update cfg.master; on failure resync from server.
+    const onMasterChange = async (e) => {
+        const master = e.target.checked ? 1 : 0;
+        try {
+            const res = await api('/api/adslots', { method: 'PUT', body: JSON.stringify({ master }) });
+            setCfg((prev) => ({ ...prev, master: res.master }));
+            setStatus(STR.adsSavedReload);
+        } catch {
+            setStatus(STR.adsSaveFailed);
+            load();
+        }
+    };
+
+    // Type-level toggle: PUT every slot in the group using snapshot codes (not live textarea state).
+    const onTypeChange = async (typeKey) => {
+        const plan = togglePlan(cfg.slots, typeKey);
+        try {
+            await Promise.all(
+                Object.keys(plan).map((k) =>
+                    api('/api/adslots', {
+                        method: 'PUT',
+                        body: JSON.stringify({
+                            slot_key: k,
+                            enabled: plan[k],
+                            code: (snapshot.current.find((s) => s.slot_key === k) || {}).code || '',
+                        }),
+                    })
+                )
+            );
+            // Optimistically update cfg.slots for the toggled group.
+            setCfg((prev) => ({
+                ...prev,
+                slots: prev.slots.map((s) =>
+                    Object.prototype.hasOwnProperty.call(plan, s.slot_key)
+                        ? { ...s, enabled: plan[s.slot_key] }
+                        : s
+                ),
+            }));
+            setStatus(STR.adsSavedReload);
+        } catch {
+            setStatus(STR.adsSaveFailed);
+            load();
+        }
+    };
+
+    // Per-slot save (Advanced section) — unchanged behaviour.
     const save = async (slot) => {
         setStatus('');
         try {
             await api('/api/adslots', { method: 'PUT', body: JSON.stringify(slot) });
-            setStatus(`${slot.slot_key} saved. Reload the site to see changes.`);
+            setStatus(`${slot.slot_key} ${STR.adsSavedReload}`);
         } catch {
-            setStatus('Save failed (session expired? log in again).');
+            setStatus(STR.adsSaveFailed);
         }
     };
-    if (slots === null) return <div>{status || 'Loading…'}</div>;
+
+    if (cfg === null) return <div>{status || STR.loading}</div>;
     return (
         <div>
             <h2>{STR.ads}</h2>
-            {slots.map((slot) => (
-                <div key={slot.slot_key} className={'admin-slot'}>
-                    <label>
-                        <input
-                            type={'checkbox'}
-                            checked={!!slot.enabled}
+
+            {/* Master switch */}
+            <label>
+                <input
+                    type={'checkbox'}
+                    checked={cfg.master === 1}
+                    onChange={onMasterChange}
+                />
+                {STR.enableAds}
+            </label>
+
+            {/* Type-level toggles */}
+            <h3>{STR.adsTypes}</h3>
+            {AD_TYPES.map(({ key }) => (
+                <label key={key}>
+                    <input
+                        type={'checkbox'}
+                        checked={typeActive(cfg.slots, key)}
+                        onChange={() => onTypeChange(key)}
+                    />
+                    {TYPE_LABELS[key] || key}
+                </label>
+            ))}
+
+            {/* Advanced: per-slot code editing (collapsed by default) */}
+            <details>
+                <summary>{STR.advanced}</summary>
+                {cfg.slots.map((slot) => (
+                    <div key={slot.slot_key} className={'admin-slot'}>
+                        <label>
+                            <input
+                                type={'checkbox'}
+                                checked={slot.enabled === 1}
+                                onChange={(e) =>
+                                    setCfg((prev) => ({
+                                        ...prev,
+                                        slots: prev.slots.map((s) =>
+                                            s.slot_key === slot.slot_key
+                                                ? { ...s, enabled: e.target.checked ? 1 : 0 }
+                                                : s
+                                        ),
+                                    }))
+                                }
+                            />
+                            {slot.slot_key}
+                        </label>
+                        <textarea
+                            rows={4}
+                            value={slot.code || ''}
                             onChange={(e) =>
-                                setSlots(slots.map((s) => (s.slot_key === slot.slot_key ? { ...s, enabled: e.target.checked ? 1 : 0 } : s)))
+                                setCfg((prev) => ({
+                                    ...prev,
+                                    slots: prev.slots.map((s) =>
+                                        s.slot_key === slot.slot_key ? { ...s, code: e.target.value } : s
+                                    ),
+                                }))
                             }
                         />
-                        {slot.slot_key}
-                    </label>
-                    <textarea
-                        rows={4}
-                        value={slot.code || ''}
-                        onChange={(e) =>
-                            setSlots(slots.map((s) => (s.slot_key === slot.slot_key ? { ...s, code: e.target.value } : s)))
-                        }
-                    />
-                    <button onClick={() => save(slot)}>{`${STR.save} ${slot.slot_key}`}</button>
-                </div>
-            ))}
+                        <button onClick={() => save(slot)}>{`${STR.save} ${slot.slot_key}`}</button>
+                    </div>
+                ))}
+            </details>
+
             {status ? <div className={'admin-status'}>{status}</div> : null}
         </div>
     );
