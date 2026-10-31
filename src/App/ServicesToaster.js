@@ -42,6 +42,8 @@ const ServicesToaster = () => {
             if (source.event === 'UserPulledFromAPI' && source.args.uid === null) return;
             if (source.event === 'LibrarySyncWithAPIPlanned' && source.args.uid === null) return;
             if (error.type === 'Other' && error.code === 3 && source.event === 'AddonInstalled' && source.args.transport_url.startsWith('https://www.strem.io/trakt/addon')) return;
+            const errorMsg = String(error?.message || error?.type || '');
+            if (/addon\s+requires\s+configuration|configuration\s+required|requires\s+configuration/i.test(errorMsg)) return;
 
             toast.show({
                 type: 'error',

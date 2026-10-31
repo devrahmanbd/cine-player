@@ -163,6 +163,11 @@ function isPlayableStream(stream, extraPatterns = []) {
         textOf(stream.url) + ' ' + textOf(stream.name) + ' ' + textOf(stream.description)
     ).toLowerCase();
 
+    // R1.5: Stream items that ask for configuration (e.g. unconfigured Torrentio/Debrid/MediaFusion streams).
+    if (/addon\s+requires\s+configuration|configuration\s+required|requires\s+configuration/i.test(haystack)) {
+        return false;
+    }
+
     // R2: `donat` substring, gated on missing behaviorHints.videoSize
     // (avoids false positives like documentaries about donations).
     if (!hasVideoSize(stream) && haystack.includes('donat')) return false;

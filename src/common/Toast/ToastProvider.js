@@ -41,6 +41,10 @@ const ToastProvider = ({ className, children }) => {
                 }
             },
             show: (item) => {
+                const toastText = `${item?.title || ''} ${item?.message || ''}`;
+                if (/addon\s+requires\s+configuration|configuration\s+required|requires\s+configuration/i.test(toastText)) {
+                    return null;
+                }
                 if (filters.some((filter) => filter(item))) {
                     return null;
                 }

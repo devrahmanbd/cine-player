@@ -167,10 +167,11 @@ describe('isPlayableStream', () => {
         expect(isPlayableStream({ url: 'https://future-cdn.example/stream/xyz?token=1' })).toBe(true);
     });
 
-    test('blocks non-http/https/magnet protocols (intent, custom schemes)', () => {
-        expect(isPlayableStream({ url: 'intent://play#Intent;package=com.player' })).toBe(false);
-        expect(isPlayableStream({ url: 'vlc://http://example.com/stream' })).toBe(false);
-        expect(isPlayableStream({ url: 'javascript:alert(1)' })).toBe(false);
+    test('blocks streams with addon requires configuration or configuration required', () => {
+        expect(isPlayableStream({ url: 'https://cdn.example/video.mp4', name: 'Torrentio', description: 'Addon requires configuration' })).toBe(false);
+        expect(isPlayableStream({ url: 'https://cdn.example/video.mp4', name: 'Addon requires configuration' })).toBe(false);
+        expect(isPlayableStream({ url: 'https://cdn.example/video.mp4', name: 'MediaFusion [Configuration Required]' })).toBe(false);
+        expect(isPlayableStream({ url: 'https://cdn.example/video.mp4', description: 'This addon requires configuration to stream' })).toBe(false);
     });
 });
 

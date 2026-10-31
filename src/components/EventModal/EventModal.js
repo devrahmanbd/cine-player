@@ -14,10 +14,15 @@ const EventModal = () => {
     const { events, pullEvents, dismissEvent } = useEvents();
 
     const modal = React.useMemo(() => {
-        return events?.modal?.type === 'Ready' ?
-            events.modal.content
-            :
-            null;
+        if (events?.modal?.type !== 'Ready') {
+            return null;
+        }
+        const content = events.modal.content;
+        const msg = `${content?.title || ''} ${content?.message || ''}`;
+        if (/addon\s+requires\s+configuration|configuration\s+required|requires\s+configuration/i.test(msg)) {
+            return null;
+        }
+        return content;
     }, [events]);
 
     const onClose = React.useCallback(() => {
