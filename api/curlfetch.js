@@ -35,4 +35,68 @@ async function curlStatus(url, { range = false, timeoutMs = 8000 } = {}) {
     return Number(String(out).trim());
 }
 
-module.exports = { curlJson, curlStatus, UA };
+async function curlProbeStream(url, { timeoutMs = 2500 } = {}) {
+    if (typeof url !== 'string') return { alive: false, streamable: false, status: 0 };
+    try {
+        const parsed = new URL(url);
+        if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+            return { alive: false, streamable: false, status: 0 };
+        }
+    } catch {
+        return { alive: false, streamable: false, status: 0 };
+    }
+
+    const args = [
+        '--range', '0-0',
+        '-D', '-',
+        '-o', '/dev/null',
+        '-w', '\n__PROBE__:%{http_code}:%{content_type}',
+        url,
+    ];
+
+    try {
+        const output = await runCurl(args, timeoutMs);
+        const markerIndex = output.lastIndexOf('\n__PROBE__:');
+        const metaLine = markerIndex !== -1 ? output.slice(markerIndex + 11).trim() : '';
+        const headersText = markerIndex !== -1 ? output.slice(0, markerIndex) : output;
+
+        const [codeStr, contentTypeRaw] = metaLine.split(':');
+        const status = Number(codeStr) || 0;
+        const contentType = (contentTypeRaw || '').toLowerCase().trim();
+
+        const is2xx = status === 200 || status === 206;
+        if (!is2xx) {
+            return { alive: false, streamable: false, status };
+        }
+
+        if (
+            contentType.includes('text/html') ||
+            contentType.includes('application/xhtml+xml') ||
+            contentType.includes('application/json')
+        ) {
+            return { alive: false, streamable: false, status, contentType };
+        }
+
+        const lowerHeaders = headersText.toLowerCase();
+        const hasRangeHeader = lowerHeaders.includes('accept-ranges: bytes') || lowerHeaders.includes('content-range:');
+        const isVideoType = contentType.startsWith('video/') ||
+            contentType.startsWith('audio/') ||
+            contentType.includes('mpegurl') ||
+            contentType.includes('matroska') ||
+            contentType.includes('dash+xml');
+
+        const isMediaExt = /\.(mp4|mkv|m3u8|webm|ts|avi|mov)(\?|#|$)/i.test(url);
+        const streamable = status === 206 || hasRangeHeader || isVideoType || isMediaExt;
+
+        return {
+            alive: true,
+            streamable,
+            status,
+            contentType,
+        };
+    } catch {
+        return { alive: false, streamable: false, status: 0 };
+    }
+}
+
+module.exports = { curlJson, curlStatus, curlProbeStream, UA };

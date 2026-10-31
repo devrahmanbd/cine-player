@@ -129,6 +129,18 @@ function isPlayableStream(stream, extraPatterns = []) {
         (typeof stream.infoHash === 'string' && stream.infoHash.length > 0) ||
         (typeof stream.ytId === 'string' && stream.ytId.length > 0);
     if (!hasSource) return false;
+
+    if (typeof stream.url === 'string' && stream.url.length > 0) {
+        try {
+            const parsed = new URL(stream.url);
+            if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:' && parsed.protocol !== 'magnet:') {
+                return false;
+            }
+        } catch (_ignored) {
+            // Unparseable URLs fail-open so text matching/subsequent rules can evaluate
+        }
+    }
+
     // Array.prototype.filter passes (value, index, array); guard the optional param.
     if (!Array.isArray(extraPatterns)) extraPatterns = [];
 

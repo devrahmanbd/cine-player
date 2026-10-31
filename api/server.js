@@ -9,8 +9,33 @@ const { openDb } = require('./db');
 const { createSchema, seedDefaults, hashPassword, verifyPassword, SLOT_KEYS } = require('./seed');
 const { normalizeEmail, validEmail, validPassword, newToken, sha256hex, takeToken, otpCode } = require('./users');
 const { resolveAvailability } = require('./availability');
-const { curlJson } = require('./curlfetch');
+const { curlJson, curlProbeStream } = require('./curlfetch');
 const { sendMail } = require('./smtp');
+
+const PROBE_CACHE_TTL_MS = 5 * 60 * 1000;
+const probeCache = new Map();
+
+function getCachedProbe(streamUrl) {
+    const cached = probeCache.get(streamUrl);
+    if (!cached) return null;
+    if (Date.now() - cached.timestamp > PROBE_CACHE_TTL_MS) {
+        probeCache.delete(streamUrl);
+        return null;
+    }
+    return cached.result;
+}
+
+function setCachedProbe(streamUrl, result) {
+    if (probeCache.size > 2000) {
+        const keys = probeCache.keys();
+        for (let i = 0; i < 500; i++) {
+            const next = keys.next();
+            if (next.done) break;
+            probeCache.delete(next.value);
+        }
+    }
+    probeCache.set(streamUrl, { timestamp: Date.now(), result });
+}
 
 const BRAND_COLUMNS = ['site_name', 'tagline', 'logo_url', 'favicon_url', 'theme', 'accent'];
 const UPLOAD_EXTS = { '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.svg': 'image/svg+xml', '.ico': 'image/x-icon' };
@@ -638,6 +663,39 @@ function startServer({ port = 3001, host = process.env.BIND_HOST || '127.0.0.1',
                 if (found.length === 0) return send(response, 404, { error: 'not found' });
                 await db.query('DELETE FROM blocked_patterns WHERE id = ?', [patternId]);
                 return send(response, 200, { ok: true });
+            }
+
+            if (request.method === 'POST' && url.pathname === '/api/streams/probe') {
+                const body = await readJson(request, 64 * 1024);
+                const urls = Array.isArray(body && body.urls) ? body.urls : [];
+                const maxUrls = urls.slice(0, 60);
+
+                const results = {};
+                const toProbe = [];
+
+                for (const rawUrl of maxUrls) {
+                    if (typeof rawUrl !== 'string' || !rawUrl.startsWith('http')) continue;
+                    const cached = getCachedProbe(rawUrl);
+                    if (cached) {
+                        results[rawUrl] = cached;
+                    } else {
+                        toProbe.push(rawUrl);
+                    }
+                }
+
+                if (toProbe.length > 0) {
+                    const concurrency = 10;
+                    for (let i = 0; i < toProbe.length; i += concurrency) {
+                        const batch = toProbe.slice(i, i + concurrency);
+                        await Promise.all(batch.map(async (u) => {
+                            const res = await curlProbeStream(u, { timeoutMs: 2500 });
+                            setCachedProbe(u, res);
+                            results[u] = res;
+                        }));
+                    }
+                }
+
+                return send(response, 200, { results });
             }
 
             if (request.method === 'POST' && url.pathname === '/api/users/signup') {

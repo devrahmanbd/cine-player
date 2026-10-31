@@ -29,6 +29,11 @@ const StreamsList = ({ className, video, type, externalPlayerCallbackCanMarkWatc
     const streamsContainerRef = React.useRef(null);
     const [selectedAddon, setSelectedAddon] = React.useState(ALL_ADDONS_KEY);
     const [blockedPatterns, setBlockedPatterns] = React.useState([]);
+    const [probeResults, setProbeResults] = React.useState({});
+    const [isProbing, setIsProbing] = React.useState(false);
+    const probedUrlsRef = React.useRef(new Set());
+    const inFlightUrlsRef = React.useRef(new Set());
+
     React.useEffect(() => {
         let cancelled = false;
         fetchBlockedPatterns().then((patterns) => {
@@ -38,6 +43,56 @@ const StreamsList = ({ className, video, type, externalPlayerCallbackCanMarkWatc
             cancelled = true;
         };
     }, []);
+
+    React.useEffect(() => {
+        const urlsToProbe = [];
+        for (const addonGroup of props.streams || []) {
+            if (addonGroup?.content?.type !== 'Ready' || !Array.isArray(addonGroup?.content?.content)) continue;
+            for (const s of addonGroup.content.content) {
+                if (s && typeof s.url === 'string' && /^https?:\/\//i.test(s.url)) {
+                    if (!probedUrlsRef.current.has(s.url) && !inFlightUrlsRef.current.has(s.url)) {
+                        inFlightUrlsRef.current.add(s.url);
+                        urlsToProbe.push(s.url);
+                    }
+                }
+            }
+        }
+
+        if (urlsToProbe.length === 0) return;
+
+        let cancelled = false;
+        setIsProbing(true);
+
+        fetch('/api/streams/probe', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ urls: urlsToProbe })
+        })
+            .then((res) => (res.ok ? res.json() : null))
+            .then((data) => {
+                if (cancelled) return;
+                const results = data?.results || {};
+                for (const u of urlsToProbe) {
+                    inFlightUrlsRef.current.delete(u);
+                    probedUrlsRef.current.add(u);
+                }
+                setProbeResults((prev) => ({ ...prev, ...results }));
+                setIsProbing(false);
+            })
+            .catch(() => {
+                if (cancelled) return;
+                for (const u of urlsToProbe) {
+                    inFlightUrlsRef.current.delete(u);
+                    probedUrlsRef.current.add(u);
+                }
+                setIsProbing(false);
+            });
+
+        return () => {
+            cancelled = true;
+        };
+    }, [props.streams]);
+
     const onAddonSelected = React.useCallback((value) => {
         streamsContainerRef.current.scrollTo({ top: 0, left: 0, behavior: platform.name === 'ios' ? 'smooth' : 'instant' });
         setSelectedAddon(value);
@@ -60,9 +115,18 @@ const StreamsList = ({ className, video, type, externalPlayerCallbackCanMarkWatc
         return props.streams
             .filter((streams) => streams.content.type === 'Ready')
             .reduce((streamsByAddon, streams) => {
-                streamsByAddon[streams.addon.transportUrl] = {
-                    addon: streams.addon,
-                    streams: streams.content.content.filter((stream) => isPlayableStream(stream, blockedPatterns)).map((stream) => ({
+                const validStreams = streams.content.content
+                    .filter((stream) => isPlayableStream(stream, blockedPatterns))
+                    .filter((stream) => {
+                        if (typeof stream.infoHash === 'string' && stream.infoHash.length > 0) return true;
+                        if (typeof stream.ytId === 'string' && stream.ytId.length > 0) return true;
+                        if (typeof stream.url === 'string' && /^https?:\/\//i.test(stream.url)) {
+                            const probe = probeResults[stream.url];
+                            return Boolean(probe && probe.alive && probe.streamable);
+                        }
+                        return false;
+                    })
+                    .map((stream) => ({
                         ...stream,
                         onClick: () => {
                             core.transport.analytics({
@@ -82,12 +146,18 @@ const StreamsList = ({ className, video, type, externalPlayerCallbackCanMarkWatc
                             }
                         },
                         addonName: streams.addon.manifest.name
-                    }))
-                };
+                    }));
+
+                if (validStreams.length > 0) {
+                    streamsByAddon[streams.addon.transportUrl] = {
+                        addon: streams.addon,
+                        streams: validStreams
+                    };
+                }
 
                 return streamsByAddon;
             }, {});
-    }, [props.streams, profile.settings.playerType, blockedPatterns]);
+    }, [props.streams, profile.settings.playerType, blockedPatterns, probeResults, core.transport]);
     const effectiveSelectedAddon = Object.prototype.hasOwnProperty.call(streamsByAddon, selectedAddon) ? selectedAddon : ALL_ADDONS_KEY;
     const filteredStreams = React.useMemo(() => {
         return effectiveSelectedAddon === ALL_ADDONS_KEY ?
@@ -175,10 +245,27 @@ const StreamsList = ({ className, video, type, externalPlayerCallbackCanMarkWatc
                         </div>
                         :
                         filteredStreams.length === 0 ?
-                            <div className={styles['streams-container']}>
-                                <Stream.Placeholder />
-                                <Stream.Placeholder />
-                            </div>
+                            (countLoadingAddons > 0 || isProbing ?
+                                <div className={styles['streams-container']}>
+                                    <Stream.Placeholder />
+                                    <Stream.Placeholder />
+                                </div>
+                                :
+                                <div className={styles['message-container']}>
+                                    {
+                                        type === 'series' ?
+                                            <SeasonEpisodePicker className={styles['search']} onSubmit={handleEpisodePicker} />
+                                            : null
+                                    }
+                                    {
+                                        video?.upcoming ?
+                                            <div className={styles['label']}>{t('UPCOMING')}...</div>
+                                            : null
+                                    }
+                                    <Image className={styles['image']} src={require('/assets/images/empty.png')} alt={' '} />
+                                    <div className={styles['label']}>{t('NO_STREAM')}</div>
+                                </div>
+                            )
                             :
                             <React.Fragment>
                                 <div

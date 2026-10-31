@@ -166,6 +166,12 @@ describe('isPlayableStream', () => {
         expect(isPlayableStream({ url: 'magnet:?xt=urn:btih:abc123' })).toBe(true);
         expect(isPlayableStream({ url: 'https://future-cdn.example/stream/xyz?token=1' })).toBe(true);
     });
+
+    test('blocks non-http/https/magnet protocols (intent, custom schemes)', () => {
+        expect(isPlayableStream({ url: 'intent://play#Intent;package=com.player' })).toBe(false);
+        expect(isPlayableStream({ url: 'vlc://http://example.com/stream' })).toBe(false);
+        expect(isPlayableStream({ url: 'javascript:alert(1)' })).toBe(false);
+    });
 });
 
 describe('maskStreamDescription host/group stripping', () => {
