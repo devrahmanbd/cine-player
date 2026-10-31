@@ -1,0 +1,43 @@
+/* GNOME Dark theme · Adwaita modern dark palette + Netflix streaming structure */
+:global(html[data-brand-theme='gnome-dark']) {
+  --color-paper: #181824;
+  --color-paper-2: #242436;
+  --color-ink: #f5f5fa;
+  --color-dim: #9898aa;
+  --color-line: rgba(255, 255, 255, 0.12);
+  --color-meta: #d0d0dc;
+  --brand-accent: #E95420;
+}
+:global(html[data-brand-theme='gnome-dark'] body) {
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-body);
+}
+:global(html[data-brand-theme='gnome-dark'] .lx-pm-hero) {
+  height: 76vh;
+  min-height: 460px;
+  background: var(--color-paper);
+}
+:global(html[data-brand-theme='gnome-dark'] .lx-pm-vignette) {
+  background: linear-gradient(90deg, rgba(24, 24, 36, 0.96) 0%, rgba(24, 24, 36, 0.8) 35%, rgba(24, 24, 36, 0.2) 65%, transparent 100%);
+}
+:global(html[data-brand-theme='gnome-dark'] .lx-pm-fade) {
+  background: linear-gradient(to top, var(--color-paper) 0%, rgba(24, 24, 36, 0.7) 40%, transparent 100%);
+}
+:global(html[data-brand-theme='gnome-dark'] .lx-pm-eyebrow) {
+  color: var(--brand-accent);
+}
+:global(html[data-brand-theme='gnome-dark'] .lx-pm-play) {
+  background: #ffffff;
+  color: #111116;
+}
+:global(html[data-brand-theme='gnome-dark'] .lx-pm-info) {
+  background: rgba(255, 255, 255, 0.18);
+  color: #ffffff;
+}
+:global(html[data-brand-theme='gnome-dark'] .lx-pm-seg[aria-current='true']) {
+  background: var(--brand-accent);
+}
+:global(html[data-brand-theme='gnome-dark'] .lx-badge-match) {
+  color: #46d369;
+}

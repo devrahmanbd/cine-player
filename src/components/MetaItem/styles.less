@@ -18,7 +18,7 @@
 
 .meta-item-container {
     position: relative;
-    padding: 1rem;
+    padding: 0.5rem;
     overflow: visible;
 
     &:hover, &:focus-within, &:global(.active), &:global(.selected) {
@@ -613,13 +613,15 @@
 // Explicit properties only; focus ring instant brand-accent, never animated.
 // Micro 200ms ease-out. Reduced: collapse to 150ms opacity-only.
 .meta-item-container {
-    transition: transform 200ms ease-out, filter 200ms ease-out, opacity 200ms ease-out;
+    transition: transform 240ms cubic-bezier(0.165, 0.84, 0.44, 1), filter 200ms ease-out, opacity 200ms ease-out;
 
     &:hover, &:focus-within {
-        transform: translateY(-2px);
+        transform: translateY(-6px) scale(1.06);
+        z-index: 20;
 
         .poster-container {
-            filter: brightness(1.08);
+            filter: brightness(1.12);
+            box-shadow: 0 16px 36px rgba(0, 0, 0, 0.85), 0 0 0 1px rgba(255, 255, 255, 0.16);
         }
     }
 
@@ -635,10 +637,12 @@
     }
 
     .poster-container {
-        transition: scale 100ms ease-out, filter 200ms ease-out, transform 200ms ease-out, opacity 200ms ease-out;
+        border-radius: 8px;
+        transition: scale 100ms ease-out, filter 200ms ease-out, transform 200ms ease-out, opacity 200ms ease-out, box-shadow 240ms ease-out;
     }
 
     .poster-container .poster-image-layer {
+        border-radius: 8px;
         transition: transform 200ms ease-out, filter 200ms ease-out, opacity 200ms ease-out;
     }
 }

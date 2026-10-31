@@ -10,7 +10,11 @@ const { default: getMetaDetailsHref } = require('stremio/common/getMetaDetailsHr
 const STR = {
     play: 'Play',
     info: 'More Info',
+    playIcon: '▶',
+    infoIcon: 'ⓘ',
     trending: 'TRENDING NOW',
+    topTen: 'TOP 10',
+    hdTag: '4K Ultra HD',
     prevArrow: '‹',
     nextArrow: '›',
     prevLabel: 'Previous spotlight',
@@ -96,37 +100,29 @@ const Billboard = ({ items }) => {
     const description = typeof item?.description === 'string' && item.description.length > 0 ? item.description : null;
     const releaseInfo = typeof item?.releaseInfo === 'string' && item.releaseInfo.length > 0 ? item.releaseInfo : null;
     const year = getYear(item);
-    const lead = releaseInfo !== null ? releaseInfo : year;
-    const metaParts = [];
-    if (lead !== null) {
-        metaParts.push('★ ' + lead);
-    }
-    if (year !== null && year !== lead) {
-        metaParts.push(year);
-    }
-    if (typeof item?.type === 'string' && item.type.length > 0) {
-        metaParts.push(item.type.toUpperCase());
-    }
+    const ratingValue = item?.rating ?? item?.imdbRating ?? item?.ratingValue;
+    const ratingStr = ratingValue ? `★ ${ratingValue}` : (releaseInfo || year);
     const firstGenre = getFirstGenre(item);
-    if (firstGenre !== null) {
-        metaParts.push(firstGenre);
-    }
-    const metaLine = metaParts.length > 0 ? metaParts.join(' · ') : null;
     const rank = String(safeIndex + 1).padStart(2, '0');
     const eyebrow = '#' + rank + ' · ' + STR.trending;
+
     return (
         <section className={'lx-pm-hero'} onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)} onKeyDown={onKeyDown}>
             <img className={'lx-pm-backdrop'} src={backdrop} alt={''} />
+            <div className={'lx-pm-vignette'} />
             <div className={'lx-pm-fade'} />
             <div className={'lx-pm-content'} key={safeIndex}>
                 <div className={'lx-pm-eyebrow'}>{eyebrow}</div>
                 <div className={'lx-pm-title'}>{title}</div>
-                {
-                    metaLine !== null ?
-                        <div className={'lx-pm-meta'}>{metaLine}</div>
-                        :
-                        null
-                }
+                <div className={'lx-pm-meta'}>
+                    {ratingStr ? <span className={'lx-badge-match'}>{ratingStr}</span> : null}
+                    {year && year !== ratingStr ? <span className={'lx-badge-year'}>{year}</span> : null}
+                    <span className={'lx-badge-quality'}>{STR.hdTag}</span>
+                    {typeof item?.type === 'string' && item.type.length > 0 ? (
+                        <span className={'lx-badge-type'}>{item.type.toUpperCase()}</span>
+                    ) : null}
+                    {firstGenre ? <span className={'lx-badge-genre'}>{firstGenre}</span> : null}
+                </div>
                 {
                     description !== null ?
                         <div className={'lx-pm-desc'}>{description}</div>
@@ -134,8 +130,14 @@ const Billboard = ({ items }) => {
                         null
                 }
                 <div className={'lx-pm-actions'}>
-                    <a className={'lx-pm-play'} href={href}>{STR.play}</a>
-                    <a className={'lx-pm-info'} href={href}>{STR.info}</a>
+                    <a className={'lx-pm-play'} href={href}>
+                        <span className={'lx-pm-btn-icon'}>{STR.playIcon}</span>
+                        <span>{STR.play}</span>
+                    </a>
+                    <a className={'lx-pm-info'} href={href}>
+                        <span className={'lx-pm-btn-icon'}>{STR.infoIcon}</span>
+                        <span>{STR.info}</span>
+                    </a>
                 </div>
                 <div className={'lx-pm-segments'}>
                     {slides.map((slide, segIndex) => {

@@ -25,6 +25,11 @@ const STR = {
     saveFailed: 'Save failed (session expired? log in again).',
     uploads: 'Uploads',
     reloaded: 'Reload the site to see changes.',
+    themeLabel: 'Theme',
+    themeGnomeDark: 'GNOME Dark (Modern Linux Streaming)',
+    themeNetflix: 'Netflix (Cinematic Obsidian & Red)',
+    themePrime: 'Prime Video (Deep Navy & Electric Cyan)',
+    themeTube: 'Tube / Cinema',
     addonsTitle: 'Addons',
     addonUrl: 'Addon manifest URL',
     addAddon: 'Add addon',
@@ -157,11 +162,39 @@ const BrandForm = () => {
     return (
         <div>
             <h2>{STR.brand}</h2>
-            {BRAND_FIELDS.map((field) => (
-                <label key={field}>{field}
-                    <input value={brand[field] || ''} onChange={(e) => setBrand({ ...brand, [field]: e.target.value })} />
-                </label>
-            ))}
+            {BRAND_FIELDS.map((field) => {
+                if (field === 'theme') {
+                    const currentTheme = brand.theme || 'gnome-dark';
+                    return (
+                        <label key={field}>{field}
+                            <select
+                                value={currentTheme}
+                                onChange={(e) => setBrand({ ...brand, theme: e.target.value })}
+                                style={{
+                                    display: 'block',
+                                    width: '100%',
+                                    marginTop: '4px',
+                                    padding: '8px',
+                                    borderRadius: '6px',
+                                    border: '1px solid #444',
+                                    background: '#14141f',
+                                    color: '#e6e6e6',
+                                }}
+                            >
+                                <option value={'gnome-dark'}>{STR.themeGnomeDark}</option>
+                                <option value={'netflix'}>{STR.themeNetflix}</option>
+                                <option value={'prime'}>{STR.themePrime}</option>
+                                <option value={'tube'}>{STR.themeTube}</option>
+                            </select>
+                        </label>
+                    );
+                }
+                return (
+                    <label key={field}>{field}
+                        <input value={brand[field] || ''} onChange={(e) => setBrand({ ...brand, [field]: e.target.value })} />
+                    </label>
+                );
+            })}
             <button onClick={save}>{STR.saveBrand}</button>
             {status ? <div className={'admin-status'}>{status}</div> : null}
         </div>

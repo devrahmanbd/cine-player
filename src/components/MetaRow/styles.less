@@ -24,9 +24,9 @@
             gap: 1rem;
             min-width: 0;
             max-height: 2.4em;
-            font-size: 1.6rem;
-            font-weight: 500;
-            color: var(--primary-foreground-color);
+            font-size: 1.45rem;
+            font-weight: 700;
+            color: #ffffff;
 
             .title-label {
                 flex: none;
@@ -35,13 +35,13 @@
                 overflow: hidden;
                 white-space: nowrap;
                 text-overflow: ellipsis;
+                font-weight: 700;
+                color: #ffffff;
+                letter-spacing: -0.01em;
             }
 
             .title-rule {
-                flex: 1;
-                min-width: 2rem;
-                height: 1px;
-                background-color: rgba(255, 255, 255, 0.12);
+                display: none;
             }
         }
 
@@ -54,27 +54,29 @@
             height: 2.5rem;
             padding: 0 0.5rem 0 1rem;
             border-radius: 2.5rem;
-            opacity: 0.6;
+            opacity: 0.7;
+            transition: opacity 150ms ease, transform 150ms ease;
 
             &:hover, &:focus {
                 outline: none;
                 background-color: var(--overlay-color);
                 opacity: 1;
+                transform: translateX(3px);
             }
 
             .label {
                 flex: 0 1 auto;
                 max-height: 1.2em;
-                font-size: 1rem;
-                font-weight: 500;
-                color: var(--primary-foreground-color);
+                font-size: 0.85rem;
+                font-weight: 600;
+                color: #54b9c5;
             }
 
             .icon {
                 flex: none;
-                height: 1.5rem;
-                margin-left: 0.5rem;
-                color: var(--primary-foreground-color);
+                height: 1.25rem;
+                margin-left: 0.35rem;
+                color: #54b9c5;
             }
         }
     }
@@ -94,6 +96,10 @@
         overflow: visible;
 
         .meta-item {
+            &:empty {
+                display: none !important;
+            }
+
             &.poster-shape-poster {
                 flex: calc(1 / var(--poster-shape-ratio));
             }

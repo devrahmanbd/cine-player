@@ -1,6 +1,7 @@
 // Copyright (C) 2026 stremio-linux fork. GPL-2.0.
 /* Hallmark themes (runtime switch via html[data-brand-theme], set from /admin brand.theme) */
 @import './themes/netflix.less';
+@import './themes/gnome-dark.less';
 @import './themes/prime.less';
 @import './themes/tube.less';
 /* Hallmark · layout-pattern pass · studied-DNA (source: url https://popcornmovies.ac/) */
@@ -479,8 +480,8 @@
 :global(.lx-pm-hero) {
     position: relative;
     width: 100%;
-    height: 72vh;
-    min-height: 440px;
+    height: 76vh;
+    min-height: 460px;
     overflow: hidden;
     background: #080b14;
 }
@@ -494,14 +495,24 @@
     transition: opacity 600ms ease-out;
     animation: lx-pm-backdrop-in 600ms ease-out;
 }
+:global(.lx-pm-vignette) {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, rgba(8, 11, 20, 0.95) 0%, rgba(8, 11, 20, 0.75) 35%, rgba(8, 11, 20, 0.15) 65%, transparent 100%);
+    pointer-events: none;
+    z-index: 1;
+}
 :global(.lx-pm-fade) {
     position: absolute;
     left: 0;
     right: 0;
     bottom: 0;
-    height: 55%;
-    background: linear-gradient(to top, #080b14 0%, transparent 100%);
+    height: 60%;
+    background: linear-gradient(to top, var(--color-paper, #080b14) 0%, rgba(8, 11, 20, 0.6) 45%, transparent 100%);
     pointer-events: none;
+    z-index: 1;
 }
 :global(.lx-pm-content) {
     position: absolute;
@@ -516,22 +527,52 @@
     font-size: 0.85rem;
     font-weight: 700;
     letter-spacing: 0.18em;
-    color: #e6e6e6;
+    color: var(--brand-accent, #e50914);
 }
 :global(.lx-pm-title) {
     margin: 0 0 12px;
-    font-size: clamp(2.5rem, 6vw, 4.5rem);
+    font-size: clamp(2.5rem, 5.5vw, 4.2rem);
     font-weight: 800;
     font-style: normal;
-    line-height: 1.02;
+    line-height: 1.05;
     color: #fff;
-    text-shadow: 2px 2px 10px rgba(0, 0, 0, 0.7);
+    text-shadow: 2px 2px 10px rgba(0, 0, 0, 0.8);
 }
 :global(.lx-pm-meta) {
-    margin: 0 0 12px;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin: 0 0 14px;
     font-size: 0.95rem;
     font-weight: 600;
+}
+:global(.lx-badge-match) {
+    color: #46d369;
+    font-weight: 700;
+}
+:global(.lx-badge-year) {
     color: #d2d2d2;
+}
+:global(.lx-badge-quality) {
+    padding: 1px 6px;
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    border-radius: 3px;
+    font-size: 0.75rem;
+    letter-spacing: 0.05em;
+    color: #f0f0f0;
+}
+:global(.lx-badge-type) {
+    padding: 2px 8px;
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    color: #fff;
+}
+:global(.lx-badge-genre) {
+    color: #a3a3a3;
 }
 :global(.lx-pm-desc) {
     display: -webkit-box;
@@ -545,39 +586,64 @@
 }
 :global(.lx-pm-actions) {
     display: flex;
+    align-items: center;
     flex-wrap: wrap;
-    gap: 12px;
-    margin-top: 18px;
+    gap: 14px;
+    margin-top: 20px;
 }
 :global(.lx-pm-play) {
-    padding: 10px 28px;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 11px 30px;
     border: 0;
-    border-radius: 999px;
+    border-radius: 6px;
     background: #fff;
     color: #000;
-    font-size: 1rem;
+    font-size: 1.05rem;
     font-weight: 700;
     text-decoration: none;
     cursor: pointer;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+    transition: transform 180ms ease, background 180ms ease, box-shadow 180ms ease;
+}
+:global(.lx-pm-play:hover) {
+    background: #e6e6e6;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.6);
 }
 :global(.lx-pm-play:focus-visible) {
     outline: 3px solid var(--brand-accent);
     outline-offset: 2px;
 }
 :global(.lx-pm-info) {
-    padding: 10px 28px;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 11px 26px;
     border: 0;
-    border-radius: 999px;
-    background: rgba(109, 109, 110, 0.7);
+    border-radius: 6px;
+    background: rgba(109, 109, 110, 0.65);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
     color: #fff;
-    font-size: 1rem;
+    font-size: 1.05rem;
     font-weight: 600;
     text-decoration: none;
     cursor: pointer;
+    transition: transform 180ms ease, background 180ms ease;
+}
+:global(.lx-pm-info:hover) {
+    background: rgba(109, 109, 110, 0.45);
+    transform: translateY(-2px);
 }
 :global(.lx-pm-info:focus-visible) {
     outline: 3px solid var(--brand-accent);
     outline-offset: 2px;
+}
+:global(.lx-pm-btn-icon) {
+    font-size: 1.15rem;
+    line-height: 1;
 }
 :global(.lx-pm-segments) {
     display: flex;
