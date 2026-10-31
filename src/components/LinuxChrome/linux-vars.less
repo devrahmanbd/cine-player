@@ -63,6 +63,205 @@
     margin: 10px 0;
 }
 
+:global(.admin-page .admin-addon-card) {
+    border: 1px solid #33334d;
+    background: #1c1c2b;
+    border-radius: 10px;
+    padding: 16px;
+    margin: 14px 0;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+:global(.admin-page .admin-addon-header) {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+:global(.admin-page .admin-addon-logo) {
+    width: 44px;
+    height: 44px;
+    border-radius: 8px;
+    object-fit: cover;
+    background: #28283d;
+    flex-shrink: 0;
+}
+
+:global(.admin-page .admin-addon-info) {
+    flex: 1;
+    min-width: 0;
+}
+
+:global(.admin-page .admin-addon-title-row) {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+:global(.admin-page .admin-addon-name) {
+    font-size: 16px;
+    font-weight: 600;
+    color: #fff;
+}
+
+:global(.admin-page .admin-addon-version) {
+    font-size: 11px;
+    padding: 2px 6px;
+    background: #2a2a40;
+    border-radius: 4px;
+    color: #a0a0c0;
+}
+
+:global(.admin-page .admin-badge) {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 8px;
+    border-radius: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+:global(.admin-page .admin-badge-warning) {
+    background: #ffaa0022;
+    border: 1px solid #ffaa00;
+    color: #ffaa00;
+}
+
+:global(.admin-page .admin-badge-configurable) {
+    background: #0088ff22;
+    border: 1px solid #0088ff;
+    color: #4da6ff;
+}
+
+:global(.admin-page .admin-badge-adult) {
+    background: #ff005522;
+    border: 1px solid #ff0055;
+    color: #ff3377;
+}
+
+:global(.admin-page .admin-badge-p2p) {
+    background: #aa00ff22;
+    border: 1px solid #aa00ff;
+    color: #cc66ff;
+}
+
+:global(.admin-page .admin-addon-desc) {
+    font-size: 13px;
+    color: #aaa;
+    margin: 4px 0;
+    line-height: 1.4;
+}
+
+:global(.admin-page .admin-addon-meta-row) {
+    display: flex;
+    gap: 12px;
+    font-size: 12px;
+    color: #888;
+    flex-wrap: wrap;
+}
+
+:global(.admin-page .admin-addon-url-row) {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #141420;
+    padding: 6px 10px;
+    border-radius: 6px;
+    font-family: monospace;
+    font-size: 12px;
+    color: #bbb;
+    word-break: break-all;
+}
+
+:global(.admin-page .admin-addon-actions) {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 4px;
+}
+
+:global(.admin-page .admin-btn) {
+    padding: 6px 12px;
+    border: none;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    background: #2e2e46;
+    color: #eee;
+    transition: background 0.15s ease;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+:global(.admin-page .admin-btn:hover:not(:disabled)) {
+    background: #3e3e5c;
+}
+
+:global(.admin-page .admin-btn:disabled) {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+:global(.admin-page .admin-btn-accent) {
+    background: var(--brand-accent);
+    color: #fff;
+}
+
+:global(.admin-page .admin-btn-accent:hover:not(:disabled)) {
+    filter: brightness(1.15);
+}
+
+:global(.admin-page .admin-btn-danger) {
+    background: #441c24;
+    color: #ff6b81;
+}
+
+:global(.admin-page .admin-btn-danger:hover:not(:disabled)) {
+    background: #5c2230;
+}
+
+:global(.admin-page .admin-edit-url-box) {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+    align-items: center;
+}
+
+:global(.admin-page .admin-edit-url-box input) {
+    flex: 1;
+    padding: 6px 10px;
+    border-radius: 6px;
+    border: 1px solid #444;
+    background: #111;
+    color: #fff;
+}
+
+:global(.admin-page .admin-guide-card) {
+    background: #182236;
+    border: 1px solid #2a446e;
+    border-radius: 8px;
+    padding: 14px;
+    margin: 16px 0;
+    font-size: 13px;
+    line-height: 1.5;
+    color: #b8d0f5;
+}
+
+:global(.admin-page .admin-preview-box) {
+    background: #161625;
+    border: 1px dashed #444466;
+    border-radius: 8px;
+    padding: 14px;
+    margin: 12px 0;
+}
+
 :global(.admin-page .admin-error) {
     color: #ff6b6b;
     margin: 8px 0;

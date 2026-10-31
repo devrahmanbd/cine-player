@@ -92,17 +92,27 @@ async function syncManagedAddons(core, managed) {
             if (manifest !== null) fetched.push({ transportUrl: url, manifest: manifest });
         }
 
-        const isInstalled = (transportUrl, manifestId) => {
-            return list.some((addon) => {
-                if (!addon) return false;
-                if (addon.transportUrl === transportUrl) return true;
-                const id = addon.manifest && addon.manifest.id;
-                return typeof id === 'string' && id === manifestId;
-            });
-        };
-
         for (const item of fetched) {
-            if (isInstalled(item.transportUrl, item.manifest.id)) continue;
+            const existingWithSameId = list.find((addon) => {
+                const id = addon && addon.manifest && addon.manifest.id;
+                return typeof id === 'string' && id === item.manifest.id;
+            });
+
+            // If already installed with identical transportUrl, nothing to update.
+            if (existingWithSameId && existingWithSameId.transportUrl === item.transportUrl) {
+                continue;
+            }
+
+            // If installed with an outdated or unconfigured URL (and not a protected builtin),
+            // replace it with the new configured transportUrl.
+            if (existingWithSameId && !(existingWithSameId.flags && existingWithSameId.flags.protected)) {
+                try {
+                    await dispatch(core, 'UninstallAddon', existingWithSameId);
+                } catch {
+                    // Fail silent on uninstall.
+                }
+            }
+
             try {
                 await dispatch(core, 'InstallAddon', {
                     transportUrl: item.transportUrl,

@@ -34,12 +34,35 @@ const STR = {
     moveDown: 'Move down',
     failedLoadAddons: 'Failed to load addons',
     addonAdded: 'Addon added.',
+    addonUpdated: 'Addon URL updated.',
     addFailed: 'Add failed.',
     addonRemoved: 'Addon removed.',
     removeFailed: 'Remove failed.',
     updateFailed: 'Update failed.',
     confirmRemove: 'Remove this addon?',
     noAddons: 'No addons yet.',
+    configureAddon: 'Configure',
+    editUrl: 'Edit URL',
+    cancel: 'Cancel',
+    saveUrl: 'Save URL',
+    inspectManifest: 'Inspect',
+    hideManifest: 'Hide',
+    requiresConfigBadge: '⚠️ Requires Config',
+    configurableBadge: 'Configurable',
+    adultBadge: '18+ Adult',
+    p2pBadge: 'P2P',
+    enabledBadge: 'Active',
+    disabledBadge: 'Disabled',
+    copyUrl: 'Copy URL',
+    urlCopied: 'Copied!',
+    previewBtn: 'Test & Preview',
+    testingUrl: 'Testing URL…',
+    invalidManifest: 'Could not fetch or validate manifest.',
+    typesLabel: 'Types:',
+    resourcesLabel: 'Resources:',
+    catalogsLabel: 'Catalogs:',
+    configNoticeTitle: 'Stremio Addon Configuration & Debrid Guide',
+    configNoticeBody: 'Addons that require configuration (such as Debrid streams or custom providers) must be configured in the addon\'s own settings page before streams will work. Click "Configure" to open the configuration page in a new tab, finish your setup there, and then copy the generated manifest URL into "Edit URL".',
     blockedTitle: 'Blocked patterns',
     blockedPlaceholder: 'Pattern to block',
     blockedAdd: 'Add pattern',
@@ -344,30 +367,87 @@ const AddonsForm = () => {
     const [addons, setAddons] = React.useState(null);
     const [status, setStatus] = React.useState('');
     const [url, setUrl] = React.useState('');
-    React.useEffect(() => {
-        api('/api/addons').then(setAddons).catch(() => setStatus(STR.failedLoadAddons));
+    const [editingId, setEditingId] = React.useState(null);
+    const [editingUrl, setEditingUrl] = React.useState('');
+    const [copiedId, setCopiedId] = React.useState(null);
+    const [preview, setPreview] = React.useState(null);
+    const [previewLoading, setPreviewLoading] = React.useState(false);
+    const [previewError, setPreviewError] = React.useState('');
+
+    const loadAddons = React.useCallback(async () => {
+        try {
+            const data = await api('/api/admin/addons');
+            setAddons(data);
+        } catch {
+            setStatus(STR.failedLoadAddons);
+        }
     }, []);
+
+    React.useEffect(() => {
+        loadAddons();
+    }, [loadAddons]);
+
     const add = async () => {
+        if (!url || !url.trim()) return;
         setStatus('');
         try {
-            const created = await api('/api/addons', { method: 'POST', body: JSON.stringify({ manifest_url: url }) });
-            setAddons((prev) => (prev ? [...prev, created] : [created]));
+            await api('/api/addons', { method: 'POST', body: JSON.stringify({ manifest_url: url.trim() }) });
+            await loadAddons();
             setUrl('');
+            setPreview(null);
             setStatus(STR.addonAdded);
         } catch (err) {
             setStatus(`${STR.addFailed} ${err.message}`);
         }
     };
+
+    const testPreview = async () => {
+        if (!url || !url.trim()) return;
+        setPreviewLoading(true);
+        setPreviewError('');
+        setPreview(null);
+        try {
+            const data = await api(`/api/admin/addons/preview?url=${encodeURIComponent(url.trim())}`);
+            if (data.status === 'error') {
+                setPreviewError(data.error || STR.invalidManifest);
+            } else {
+                setPreview(data);
+            }
+        } catch (err) {
+            setPreviewError(err.message || STR.invalidManifest);
+        } finally {
+            setPreviewLoading(false);
+        }
+    };
+
+    const saveEditedUrl = async (addon) => {
+        if (!editingUrl || !editingUrl.trim()) return;
+        setStatus('');
+        try {
+            await api(`/api/addons/${addon.id}`, {
+                method: 'PUT',
+                body: JSON.stringify({ manifest_url: editingUrl.trim() }),
+            });
+            await loadAddons();
+            setEditingId(null);
+            setEditingUrl('');
+            setStatus(STR.addonUpdated);
+        } catch (err) {
+            setStatus(`${STR.updateFailed} ${err.message}`);
+        }
+    };
+
     const toggle = async (addon, enabled) => {
         setStatus('');
         try {
             const updated = await api(`/api/addons/${addon.id}`, { method: 'PUT', body: JSON.stringify({ enabled }) });
-            const nextEnabled = updated.enabled !== undefined ? updated.enabled : enabled;
+            const nextEnabled = updated.enabled !== undefined ? updated.enabled : (enabled ? 1 : 0);
             setAddons((prev) => prev.map((item) => (item.id === addon.id ? { ...item, enabled: nextEnabled } : item)));
         } catch {
             setStatus(STR.updateFailed);
         }
     };
+
     const move = async (index, delta) => {
         const neighbor = index + delta;
         if (!addons || neighbor < 0 || neighbor >= addons.length) return;
@@ -381,14 +461,15 @@ const AddonsForm = () => {
             await api(`/api/addons/${other.id}`, { method: 'PUT', body: JSON.stringify({ position: currentPos }) });
             setAddons((prev) => {
                 const next = [...prev];
-                next[index] = other;
-                next[neighbor] = current;
+                next[index] = { ...other, position: currentPos };
+                next[neighbor] = { ...current, position: otherPos };
                 return next;
             });
         } catch {
             setStatus(STR.updateFailed);
         }
     };
+
     const remove = async (addon) => {
         if (!window.confirm(STR.confirmRemove)) return;
         setStatus('');
@@ -400,32 +481,234 @@ const AddonsForm = () => {
             setStatus(STR.removeFailed);
         }
     };
+
+    const copyToClipboard = (addon) => {
+        if (navigator && navigator.clipboard) {
+            navigator.clipboard.writeText(addon.manifest_url);
+            setCopiedId(addon.id);
+            setTimeout(() => setCopiedId(null), 2000);
+        }
+    };
+
     if (addons === null) return <div>{status || STR.loading}</div>;
+
     return (
         <div>
             <h2>{STR.addonsTitle}</h2>
+
+            <div className={'admin-guide-card'}>
+                <h3 style={{ margin: '0 0 6px 0', color: '#ffaa00' }}>{STR.configNoticeTitle}</h3>
+                <p style={{ margin: 0, fontSize: '13px', lineHeight: 1.5, color: '#ccc' }}>
+                    {STR.configNoticeBody}
+                </p>
+            </div>
+
             {addons.length === 0 ? <div>{STR.noAddons}</div> : null}
+
             {addons.map((addon, index) => (
-                <div key={addon.id} className={'admin-slot'}>
-                    <span>{addon.name}</span>
-                    <span>{addon.manifest_url}</span>
-                    <label>
-                        <input
-                            type={'checkbox'}
-                            checked={!!addon.enabled}
-                            onChange={(e) => toggle(addon, e.target.checked)}
-                        />
-                        {STR.enable}
-                    </label>
-                    <button onClick={() => move(index, -1)} disabled={index === 0}>{STR.moveUp}</button>
-                    <button onClick={() => move(index, 1)} disabled={index === addons.length - 1}>{STR.moveDown}</button>
-                    <button onClick={() => remove(addon)}>{STR.remove}</button>
+                <div key={addon.id} className={'admin-addon-card'}>
+                    <div className={'admin-addon-header'}>
+                        {addon.logo ? (
+                            <img src={addon.logo} alt={addon.name} className={'admin-addon-logo'} />
+                        ) : (
+                            <div className={'admin-addon-logo'} />
+                        )}
+                        <div className={'admin-addon-info'}>
+                            <div className={'admin-addon-title-row'}>
+                                <span className={'admin-addon-name'}>{addon.name}</span>
+                                {addon.version ? <span className={'admin-addon-version'}>{addon.version}</span> : null}
+                                {addon.configurationRequired ? (
+                                    <span className={'admin-badge admin-badge-warning'}>{STR.requiresConfigBadge}</span>
+                                ) : addon.configurable ? (
+                                    <span className={'admin-badge admin-badge-configurable'}>{STR.configurableBadge}</span>
+                                ) : null}
+                                {addon.behaviorHints && addon.behaviorHints.adult ? (
+                                    <span className={'admin-badge admin-badge-adult'}>{STR.adultBadge}</span>
+                                ) : null}
+                                {addon.behaviorHints && addon.behaviorHints.p2p ? (
+                                    <span className={'admin-badge admin-badge-p2p'}>{STR.p2pBadge}</span>
+                                ) : null}
+                                <span className={`admin-badge ${addon.enabled ? 'admin-badge-configurable' : 'admin-badge-warning'}`}>
+                                    {addon.enabled ? STR.enabledBadge : STR.disabledBadge}
+                                </span>
+                            </div>
+                            {addon.description ? <div className={'admin-addon-desc'}>{addon.description}</div> : null}
+                            <div className={'admin-addon-meta-row'}>
+                                {addon.types && addon.types.length > 0 ? (
+                                    <span>{[STR.typesLabel, addon.types.join(', ')].join(' ')}</span>
+                                ) : null}
+                                {addon.resources && addon.resources.length > 0 ? (
+                                    <span>{[STR.resourcesLabel, addon.resources.join(', ')].join(' ')}</span>
+                                ) : null}
+                                {addon.catalogs ? (
+                                    <span>{[STR.catalogsLabel, addon.catalogs].join(' ')}</span>
+                                ) : null}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className={'admin-addon-url-row'}>
+                        <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {addon.manifest_url}
+                        </span>
+                        <button
+                            type={'button'}
+                            className={'admin-btn'}
+                            onClick={() => copyToClipboard(addon)}
+                        >
+                            {copiedId === addon.id ? STR.urlCopied : STR.copyUrl}
+                        </button>
+                    </div>
+
+                    {editingId === addon.id ? (
+                        <div className={'admin-edit-url-box'}>
+                            <input
+                                value={editingUrl}
+                                onChange={(e) => setEditingUrl(e.target.value)}
+                                placeholder={STR.addonUrl}
+                            />
+                            <button
+                                type={'button'}
+                                className={'admin-btn admin-btn-accent'}
+                                onClick={() => saveEditedUrl(addon)}
+                            >
+                                {STR.saveUrl}
+                            </button>
+                            <button
+                                type={'button'}
+                                className={'admin-btn'}
+                                onClick={() => {
+                                    setEditingId(null);
+                                    setEditingUrl('');
+                                }}
+                            >
+                                {STR.cancel}
+                            </button>
+                        </div>
+                    ) : null}
+
+                    <div className={'admin-addon-actions'}>
+                        {addon.configureUrl ? (
+                            <a
+                                href={addon.configureUrl}
+                                target={'_blank'}
+                                rel={'noopener noreferrer'}
+                                className={'admin-btn admin-btn-accent'}
+                            >
+                                {STR.configureAddon}
+                            </a>
+                        ) : null}
+                        <button
+                            type={'button'}
+                            className={'admin-btn'}
+                            onClick={() => {
+                                if (editingId === addon.id) {
+                                    setEditingId(null);
+                                    setEditingUrl('');
+                                } else {
+                                    setEditingId(addon.id);
+                                    setEditingUrl(addon.manifest_url);
+                                }
+                            }}
+                        >
+                            {STR.editUrl}
+                        </button>
+                        <button
+                            type={'button'}
+                            className={'admin-btn'}
+                            onClick={() => toggle(addon, !addon.enabled)}
+                        >
+                            {addon.enabled ? STR.disabledBadge : STR.enable}
+                        </button>
+                        <button
+                            type={'button'}
+                            className={'admin-btn'}
+                            onClick={() => move(index, -1)}
+                            disabled={index === 0}
+                        >
+                            {STR.moveUp}
+                        </button>
+                        <button
+                            type={'button'}
+                            className={'admin-btn'}
+                            onClick={() => move(index, 1)}
+                            disabled={index === addons.length - 1}
+                        >
+                            {STR.moveDown}
+                        </button>
+                        <button
+                            type={'button'}
+                            className={'admin-btn admin-btn-danger'}
+                            onClick={() => remove(addon)}
+                        >
+                            {STR.remove}
+                        </button>
+                    </div>
                 </div>
             ))}
-            <div>
-                <input value={url} placeholder={STR.addonUrl} onChange={(e) => setUrl(e.target.value)} />
-                <button onClick={add}>{STR.addAddon}</button>
+
+            <div style={{ marginTop: '24px', background: '#1c1c2b', border: '1px solid #33334d', borderRadius: '10px', padding: '16px' }}>
+                <h3 style={{ margin: '0 0 12px 0' }}>{STR.addAddon}</h3>
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                    <input
+                        style={{ flex: 1, minWidth: '240px', padding: '8px 12px', borderRadius: '6px', border: '1px solid #444', background: '#111', color: '#fff' }}
+                        value={url}
+                        placeholder={STR.addonUrl}
+                        onChange={(e) => {
+                            setUrl(e.target.value);
+                            setPreview(null);
+                            setPreviewError('');
+                        }}
+                    />
+                    <button
+                        type={'button'}
+                        className={'admin-btn'}
+                        onClick={testPreview}
+                        disabled={previewLoading || !url.trim()}
+                    >
+                        {previewLoading ? STR.testingUrl : STR.previewBtn}
+                    </button>
+                    <button
+                        type={'button'}
+                        className={'admin-btn admin-btn-accent'}
+                        onClick={add}
+                        disabled={!url.trim()}
+                    >
+                        {STR.addAddon}
+                    </button>
+                </div>
+
+                {previewError ? (
+                    <div className={'admin-error'} style={{ marginTop: '10px' }}>
+                        {previewError}
+                    </div>
+                ) : null}
+
+                {preview ? (
+                    <div className={'admin-preview-box'}>
+                        <div className={'admin-addon-header'}>
+                            {preview.logo ? (
+                                <img src={preview.logo} alt={preview.name} className={'admin-addon-logo'} />
+                            ) : (
+                                <div className={'admin-addon-logo'} />
+                            )}
+                            <div className={'admin-addon-info'}>
+                                <div className={'admin-addon-title-row'}>
+                                    <span className={'admin-addon-name'}>{preview.name}</span>
+                                    {preview.version ? <span className={'admin-addon-version'}>{preview.version}</span> : null}
+                                    {preview.configurationRequired ? (
+                                        <span className={'admin-badge admin-badge-warning'}>{STR.requiresConfigBadge}</span>
+                                    ) : preview.configurable ? (
+                                        <span className={'admin-badge admin-badge-configurable'}>{STR.configurableBadge}</span>
+                                    ) : null}
+                                </div>
+                                {preview.description ? <div className={'admin-addon-desc'}>{preview.description}</div> : null}
+                            </div>
+                        </div>
+                    </div>
+                ) : null}
             </div>
+
             {status ? <div className={'admin-status'}>{status}</div> : null}
         </div>
     );

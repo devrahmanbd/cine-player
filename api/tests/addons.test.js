@@ -31,7 +31,7 @@ describe('addons', () => {
         base = `http://127.0.0.1:${started.port}`;
 
         manifestServer = http.createServer((req, res) => {
-            if (req.url === '/manifest.json') {
+            if (req.url.endsWith('/manifest.json')) {
                 res.writeHead(200, { 'content-type': 'application/json' });
                 res.end(JSON.stringify(MANIFEST));
             } else if (req.url === '/not-json') {
@@ -190,5 +190,62 @@ describe('addons', () => {
             `${base}/api/addons/manifest?url=${encodeURIComponent(`${manifestBase}/manifest.json`)}`
         );
         assert.equal(hidden.status, 404);
+    });
+
+    it('supports admin addons listing with rich metadata, preview, and manifest_url update', async () => {
+        // Unauthenticated admin endpoints -> 401
+        const noAuthAdminList = await fetch(`${base}/api/admin/addons`);
+        assert.equal(noAuthAdminList.status, 401);
+        const noAuthPreview = await fetch(`${base}/api/admin/addons/preview?url=${encodeURIComponent(`${manifestBase}/manifest.json`)}`);
+        assert.equal(noAuthPreview.status, 401);
+
+        // Preview route with valid manifest
+        const previewRes = await fetch(
+            `${base}/api/admin/addons/preview?url=${encodeURIComponent(`${manifestBase}/manifest.json`)}`,
+            { headers: { cookie } }
+        );
+        assert.equal(previewRes.status, 200);
+        const preview = await previewRes.json();
+        assert.equal(preview.ok, true);
+        assert.equal(preview.name, 'Test');
+        assert.equal(preview.version, '1.0.0');
+
+        // stremio:// URL normalization in POST
+        const stremioUrl = manifestBase.replace(/^http:/, 'stremio:') + '/configured/manifest.json';
+        const createdStremio = await (
+            await fetch(`${base}/api/addons`, {
+                method: 'POST',
+                headers: { 'content-type': 'application/json', cookie },
+                body: JSON.stringify({ manifest_url: stremioUrl }),
+            })
+        ).json();
+        assert.ok(createdStremio.id);
+        assert.ok(createdStremio.manifest_url.startsWith('https://') || createdStremio.manifest_url.startsWith('http://'));
+
+        // Admin list returns all addons with metadata, including disabled ones
+        const adminList = await (
+            await fetch(`${base}/api/admin/addons`, {
+                headers: { cookie },
+            })
+        ).json();
+        assert.ok(Array.isArray(adminList));
+        assert.ok(adminList.length >= 1);
+        const entry = adminList.find((a) => a.id === createdStremio.id);
+        assert.ok(entry);
+        assert.equal(entry.name, 'Test');
+        assert.equal(entry.version, '1.0.0');
+        assert.equal(entry.enabled, true);
+        assert.equal(typeof entry.configurable, 'boolean');
+        assert.equal(typeof entry.configurationRequired, 'boolean');
+
+        // Update manifest_url via PUT
+        const updatedRes = await fetch(`${base}/api/addons/${createdStremio.id}`, {
+            method: 'PUT',
+            headers: { 'content-type': 'application/json', cookie },
+            body: JSON.stringify({ manifest_url: `${manifestBase}/updated/manifest.json` }),
+        });
+        assert.equal(updatedRes.status, 200);
+        const updated = await updatedRes.json();
+        assert.equal(updated.manifest_url, `${manifestBase}/updated/manifest.json`);
     });
 });

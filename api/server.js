@@ -62,10 +62,25 @@ function send(response, status, body, headers = {}) {
     response.end(payload);
 }
 
+function normalizeManifestUrl(rawUrl) {
+    if (typeof rawUrl !== 'string') return '';
+    let url = rawUrl.trim();
+    if (url.startsWith('stremio://')) {
+        const rest = url.slice('stremio://'.length);
+        if (/^(127\.0\.0\.1|localhost)(:\d+)?(\/|$)/i.test(rest)) {
+            url = 'http://' + rest;
+        } else {
+            url = 'https://' + rest;
+        }
+    }
+    return url;
+}
+
 async function fetchManifest(manifestUrl) {
+    const normalized = normalizeManifestUrl(manifestUrl);
     let parsed;
     try {
-        parsed = new URL(manifestUrl);
+        parsed = new URL(normalized);
     } catch {
         throw Object.assign(new Error('bad manifest_url'), { status: 400 });
     }
@@ -74,7 +89,7 @@ async function fetchManifest(manifestUrl) {
     }
     let manifest;
     try {
-        manifest = await curlJson(manifestUrl, 8000);
+        manifest = await curlJson(normalized, 8000);
     } catch {
         throw Object.assign(new Error('bad manifest'), { status: 400 });
     }
@@ -82,6 +97,61 @@ async function fetchManifest(manifestUrl) {
         throw Object.assign(new Error('bad manifest'), { status: 400 });
     }
     return manifest;
+}
+
+const manifestMetaCache = new Map();
+const MANIFEST_CACHE_TTL_MS = 10 * 60 * 1000;
+
+async function getAddonManifestMeta(manifestUrl) {
+    const cached = manifestMetaCache.get(manifestUrl);
+    const now = Date.now();
+    if (cached && now - cached.timestamp < MANIFEST_CACHE_TTL_MS) {
+        return cached.data;
+    }
+    try {
+        const manifest = await fetchManifest(manifestUrl);
+        const data = {
+            status: 'ok',
+            name: manifest.name,
+            version: typeof manifest.version === 'string' ? manifest.version : '',
+            description: typeof manifest.description === 'string' ? manifest.description : '',
+            logo: typeof manifest.logo === 'string' ? manifest.logo : '',
+            types: Array.isArray(manifest.types) ? manifest.types : [],
+            resources: Array.isArray(manifest.resources)
+                ? manifest.resources.map((r) => (typeof r === 'string' ? r : r && r.name)).filter(Boolean)
+                : [],
+            catalogs: Array.isArray(manifest.catalogs)
+                ? manifest.catalogs.map((c) => ({ type: c.type, id: c.id, name: c.name || c.id }))
+                : [],
+            behaviorHints:
+                manifest.behaviorHints && typeof manifest.behaviorHints === 'object'
+                    ? manifest.behaviorHints
+                    : {},
+            configurable: !!(manifest.behaviorHints && manifest.behaviorHints.configurable),
+            configurationRequired: !!(manifest.behaviorHints && manifest.behaviorHints.configurationRequired),
+            manifest,
+        };
+        manifestMetaCache.set(manifestUrl, { timestamp: now, data });
+        return data;
+    } catch (err) {
+        const errorData = {
+            status: 'error',
+            error: err.message || 'failed to fetch manifest',
+            name: '',
+            version: '',
+            description: '',
+            logo: '',
+            types: [],
+            resources: [],
+            catalogs: [],
+            behaviorHints: {},
+            configurable: false,
+            configurationRequired: false,
+            manifest: null,
+        };
+        manifestMetaCache.set(manifestUrl, { timestamp: now - MANIFEST_CACHE_TTL_MS + 30000, data: errorData });
+        return errorData;
+    }
 }
 
 function parseAddonId(pathname) {
@@ -338,6 +408,74 @@ function startServer({ port = 3001, host = process.env.BIND_HOST || '127.0.0.1',
                 return send(response, 200, rows);
             }
 
+            if (request.method === 'GET' && url.pathname === '/api/admin/addons') {
+                if (!authed) return send(response, 401, { error: 'unauthorized' });
+                const rows = await db.query(
+                    'SELECT id, manifest_url, name, enabled, position FROM addons ORDER BY position ASC, id ASC'
+                );
+                const list = await Promise.all(
+                    rows.map(async (row) => {
+                        const meta = await getAddonManifestMeta(row.manifest_url);
+                        return {
+                            id: row.id,
+                            manifest_url: row.manifest_url,
+                            name: meta.name || row.name,
+                            enabled: row.enabled === 1,
+                            position: row.position,
+                            version: meta.version,
+                            description: meta.description,
+                            logo: meta.logo,
+                            types: meta.types,
+                            resources: meta.resources,
+                            catalogs: meta.catalogs,
+                            behaviorHints: meta.behaviorHints,
+                            configurable: meta.configurable,
+                            configurationRequired: meta.configurationRequired,
+                            configureUrl: row.manifest_url.replace(/manifest\.json$/, 'configure'),
+                            status: meta.status,
+                            error: meta.error || null,
+                        };
+                    })
+                );
+                return send(response, 200, list);
+            }
+
+            if (request.method === 'GET' && url.pathname === '/api/admin/addons/preview') {
+                if (!authed) return send(response, 401, { error: 'unauthorized' });
+                const target = url.searchParams.get('url') || '';
+                const normalized = normalizeManifestUrl(target);
+                try {
+                    const manifest = await fetchManifest(normalized);
+                    return send(response, 200, {
+                        ok: true,
+                        manifest_url: normalized,
+                        name: manifest.name,
+                        version: typeof manifest.version === 'string' ? manifest.version : '',
+                        description: typeof manifest.description === 'string' ? manifest.description : '',
+                        logo: typeof manifest.logo === 'string' ? manifest.logo : '',
+                        types: Array.isArray(manifest.types) ? manifest.types : [],
+                        resources: Array.isArray(manifest.resources)
+                            ? manifest.resources.map((r) => (typeof r === 'string' ? r : r && r.name)).filter(Boolean)
+                            : [],
+                        catalogs: Array.isArray(manifest.catalogs)
+                            ? manifest.catalogs.map((c) => ({ type: c.type, id: c.id, name: c.name || c.id }))
+                            : [],
+                        behaviorHints:
+                            manifest.behaviorHints && typeof manifest.behaviorHints === 'object'
+                                ? manifest.behaviorHints
+                                : {},
+                        configurable: !!(manifest.behaviorHints && manifest.behaviorHints.configurable),
+                        configurationRequired: !!(manifest.behaviorHints && manifest.behaviorHints.configurationRequired),
+                        configureUrl: normalized.replace(/manifest\.json$/, 'configure'),
+                    });
+                } catch (error) {
+                    return send(response, error.status || 400, {
+                        ok: false,
+                        error: error.message || 'bad manifest',
+                    });
+                }
+            }
+
             // Public manifest proxy: some addon hosts bot-wall browsers (403)
             // while serving server-side fetches fine. The requested URL must be
             // an enabled admin addon (allowlist) — never an open proxy.
@@ -364,22 +502,23 @@ function startServer({ port = 3001, host = process.env.BIND_HOST || '127.0.0.1',
             if (request.method === 'POST' && url.pathname === '/api/addons') {
                 if (!authed) return send(response, 401, { error: 'unauthorized' });
                 const body = await readJson(request, 64 * 1024);
-                if (typeof body.manifest_url !== 'string' || body.manifest_url.length === 0) {
+                if (typeof body.manifest_url !== 'string' || body.manifest_url.trim().length === 0) {
                     return send(response, 400, { error: 'bad manifest_url' });
                 }
+                const normalized = normalizeManifestUrl(body.manifest_url);
                 const existing = await db.query('SELECT id FROM addons WHERE manifest_url = ?', [
-                    body.manifest_url,
+                    normalized,
                 ]);
                 if (existing.length > 0) return send(response, 409, { error: 'already exists' });
                 let manifest;
                 try {
-                    manifest = await fetchManifest(body.manifest_url);
+                    manifest = await fetchManifest(normalized);
                 } catch (error) {
                     return send(response, error.status || 400, { error: error.message || 'bad manifest' });
                 }
                 try {
                     await db.query('INSERT INTO addons (manifest_url, name, enabled, position) VALUES (?, ?, 1, 0)', [
-                        body.manifest_url,
+                        normalized,
                         manifest.name,
                     ]);
                 } catch (error) {
@@ -390,7 +529,7 @@ function startServer({ port = 3001, host = process.env.BIND_HOST || '127.0.0.1',
                 }
                 const rows = await db.query(
                     'SELECT id, manifest_url, name, position FROM addons WHERE manifest_url = ?',
-                    [body.manifest_url]
+                    [normalized]
                 );
                 return send(response, 200, rows[0]);
             }
@@ -402,6 +541,26 @@ function startServer({ port = 3001, host = process.env.BIND_HOST || '127.0.0.1',
                 const body = await readJson(request, 64 * 1024);
                 const sets = [];
                 const params = [];
+                if ('manifest_url' in body) {
+                    if (typeof body.manifest_url !== 'string' || body.manifest_url.trim().length === 0) {
+                        return send(response, 400, { error: 'bad manifest_url' });
+                    }
+                    const normalized = normalizeManifestUrl(body.manifest_url);
+                    const duplicate = await db.query('SELECT id FROM addons WHERE manifest_url = ? AND id != ?', [
+                        normalized,
+                        addonId,
+                    ]);
+                    if (duplicate.length > 0) return send(response, 409, { error: 'already exists' });
+                    let manifest;
+                    try {
+                        manifest = await fetchManifest(normalized);
+                    } catch (error) {
+                        return send(response, error.status || 400, { error: error.message || 'bad manifest' });
+                    }
+                    sets.push('manifest_url = ?', 'name = ?');
+                    params.push(normalized, manifest.name);
+                    manifestMetaCache.delete(normalized);
+                }
                 if ('enabled' in body) {
                     if (typeof body.enabled !== 'boolean') return send(response, 400, { error: 'bad enabled' });
                     sets.push('enabled = ?');
@@ -415,8 +574,9 @@ function startServer({ port = 3001, host = process.env.BIND_HOST || '127.0.0.1',
                     params.push(Math.trunc(body.position));
                 }
                 if (sets.length === 0) return send(response, 400, { error: 'nothing to update' });
-                const found = await db.query('SELECT id FROM addons WHERE id = ?', [addonId]);
+                const found = await db.query('SELECT id, manifest_url FROM addons WHERE id = ?', [addonId]);
                 if (found.length === 0) return send(response, 404, { error: 'not found' });
+                if (found[0] && found[0].manifest_url) manifestMetaCache.delete(found[0].manifest_url);
                 params.push(addonId);
                 await db.query(`UPDATE addons SET ${sets.join(', ')} WHERE id = ?`, params);
                 const rows = await db.query(
@@ -430,8 +590,9 @@ function startServer({ port = 3001, host = process.env.BIND_HOST || '127.0.0.1',
                 if (!authed) return send(response, 401, { error: 'unauthorized' });
                 const addonId = parseAddonId(url.pathname);
                 if (addonId === null) return send(response, 404, { error: 'not found' });
-                const found = await db.query('SELECT id FROM addons WHERE id = ?', [addonId]);
+                const found = await db.query('SELECT id, manifest_url FROM addons WHERE id = ?', [addonId]);
                 if (found.length === 0) return send(response, 404, { error: 'not found' });
+                if (found[0] && found[0].manifest_url) manifestMetaCache.delete(found[0].manifest_url);
                 await db.query('DELETE FROM addons WHERE id = ?', [addonId]);
                 return send(response, 200, { ok: true });
             }
