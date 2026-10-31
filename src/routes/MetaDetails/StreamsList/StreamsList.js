@@ -30,9 +30,10 @@ const StreamsList = ({ className, video, type, externalPlayerCallbackCanMarkWatc
     const [selectedAddon, setSelectedAddon] = React.useState(ALL_ADDONS_KEY);
     const [blockedPatterns, setBlockedPatterns] = React.useState([]);
     const [probeResults, setProbeResults] = React.useState({});
-    const [isProbing, setIsProbing] = React.useState(false);
+    const [probingCount, setProbingCount] = React.useState(0);
     const probedUrlsRef = React.useRef(new Set());
     const inFlightUrlsRef = React.useRef(new Set());
+    const activeVideoIdRef = React.useRef(video?.id);
 
     React.useEffect(() => {
         let cancelled = false;
@@ -44,7 +45,19 @@ const StreamsList = ({ className, video, type, externalPlayerCallbackCanMarkWatc
         };
     }, []);
 
+    // Reset probe cache when navigating to another video
     React.useEffect(() => {
+        if (activeVideoIdRef.current !== video?.id) {
+            activeVideoIdRef.current = video?.id;
+            inFlightUrlsRef.current.clear();
+            probedUrlsRef.current.clear();
+            setProbeResults({});
+            setProbingCount(0);
+        }
+    }, [video?.id]);
+
+    React.useEffect(() => {
+        const currentVideoId = video?.id;
         const urlsToProbe = [];
         for (const addonGroup of props.streams || []) {
             if (addonGroup?.content?.type !== 'Ready' || !Array.isArray(addonGroup?.content?.content)) continue;
@@ -60,8 +73,7 @@ const StreamsList = ({ className, video, type, externalPlayerCallbackCanMarkWatc
 
         if (urlsToProbe.length === 0) return;
 
-        let cancelled = false;
-        setIsProbing(true);
+        setProbingCount((c) => c + urlsToProbe.length);
 
         fetch('/api/streams/probe', {
             method: 'POST',
@@ -70,28 +82,24 @@ const StreamsList = ({ className, video, type, externalPlayerCallbackCanMarkWatc
         })
             .then((res) => (res.ok ? res.json() : null))
             .then((data) => {
-                if (cancelled) return;
+                if (activeVideoIdRef.current !== currentVideoId) return;
                 const results = data?.results || {};
                 for (const u of urlsToProbe) {
                     inFlightUrlsRef.current.delete(u);
                     probedUrlsRef.current.add(u);
                 }
                 setProbeResults((prev) => ({ ...prev, ...results }));
-                setIsProbing(false);
             })
             .catch(() => {
-                if (cancelled) return;
                 for (const u of urlsToProbe) {
                     inFlightUrlsRef.current.delete(u);
                     probedUrlsRef.current.add(u);
                 }
-                setIsProbing(false);
+            })
+            .finally(() => {
+                setProbingCount((c) => Math.max(0, c - urlsToProbe.length));
             });
-
-        return () => {
-            cancelled = true;
-        };
-    }, [props.streams]);
+    }, [props.streams, video?.id]);
 
     const onAddonSelected = React.useCallback((value) => {
         streamsContainerRef.current.scrollTo({ top: 0, left: 0, behavior: platform.name === 'ios' ? 'smooth' : 'instant' });
@@ -245,7 +253,7 @@ const StreamsList = ({ className, video, type, externalPlayerCallbackCanMarkWatc
                         </div>
                         :
                         filteredStreams.length === 0 ?
-                            (countLoadingAddons > 0 || isProbing ?
+                            (countLoadingAddons > 0 || probingCount > 0 ?
                                 <div className={styles['streams-container']}>
                                     <Stream.Placeholder />
                                     <Stream.Placeholder />
