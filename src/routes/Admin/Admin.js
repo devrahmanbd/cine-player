@@ -30,6 +30,7 @@ const STR = {
     themeNetflix: 'Netflix (Cinematic Obsidian & Red)',
     themePrime: 'Prime Video (Deep Navy & Electric Cyan)',
     themeTube: 'Tube / Cinema',
+    themeCinemacon: 'CinemaCon (Bingr-style OLED & Frosted Glass)',
     addonsTitle: 'Addons',
     addonUrl: 'Addon manifest URL',
     addAddon: 'Add addon',
@@ -185,6 +186,7 @@ const BrandForm = () => {
                                 <option value={'netflix'}>{STR.themeNetflix}</option>
                                 <option value={'prime'}>{STR.themePrime}</option>
                                 <option value={'tube'}>{STR.themeTube}</option>
+                                <option value={'cinemacon'}>{STR.themeCinemacon}</option>
                             </select>
                         </label>
                     );
