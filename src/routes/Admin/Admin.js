@@ -540,8 +540,8 @@ const AddonsForm = () => {
                                 {addon.resources && addon.resources.length > 0 ? (
                                     <span>{[STR.resourcesLabel, addon.resources.join(', ')].join(' ')}</span>
                                 ) : null}
-                                {addon.catalogs ? (
-                                    <span>{[STR.catalogsLabel, addon.catalogs].join(' ')}</span>
+                                {addon.catalogs && (Array.isArray(addon.catalogs) ? addon.catalogs.length : addon.catalogs) ? (
+                                    <span>{[STR.catalogsLabel, Array.isArray(addon.catalogs) ? addon.catalogs.length : addon.catalogs].join(' ')}</span>
                                 ) : null}
                             </div>
                         </div>
@@ -703,6 +703,14 @@ const AddonsForm = () => {
                                     ) : null}
                                 </div>
                                 {preview.description ? <div className={'admin-addon-desc'}>{preview.description}</div> : null}
+                                <div className={'admin-addon-meta-row'}>
+                                    {preview.types && preview.types.length > 0 ? (
+                                        <span>{[STR.typesLabel, preview.types.join(', ')].join(' ')}</span>
+                                    ) : null}
+                                    {preview.resources && preview.resources.length > 0 ? (
+                                        <span>{[STR.resourcesLabel, preview.resources.join(', ')].join(' ')}</span>
+                                    ) : null}
+                                </div>
                             </div>
                         </div>
                     </div>
