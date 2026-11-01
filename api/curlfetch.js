@@ -35,7 +35,20 @@ async function curlStatus(url, { range = false, timeoutMs = 8000 } = {}) {
     return Number(String(out).trim());
 }
 
-async function curlProbeStream(url, { timeoutMs = 2500 } = {}) {
+function extractFirstM3u8Uri(body) {
+    if (typeof body !== 'string') return null;
+    const lines = body.split(/\r?\n/);
+    for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed.startsWith('#')) continue;
+        return trimmed;
+    }
+    const mediaMatch = /#EXT-X-MEDIA:[^\r\n]*URI="([^"]+)"/i.exec(body);
+    if (mediaMatch) return mediaMatch[1];
+    return null;
+}
+
+async function curlProbeStream(url, { timeoutMs = 2500, depth = 0 } = {}) {
     if (typeof url !== 'string') return { alive: false, streamable: false, status: 0 };
     try {
         const parsed = new URL(url);
@@ -75,6 +88,33 @@ async function curlProbeStream(url, { timeoutMs = 2500 } = {}) {
             contentType.includes('application/json')
         ) {
             return { alive: false, streamable: false, status, contentType };
+        }
+
+        const isM3u8 = contentType.includes('mpegurl') || /\.(m3u8)(\?|#|$)/i.test(url);
+        if (isM3u8 && depth < 2) {
+            try {
+                const playlistText = await runCurl(['--max-filesize', '65536', url], Math.min(timeoutMs, 2000));
+                if (playlistText.includes('#EXTM3U')) {
+                    const childUri = extractFirstM3u8Uri(playlistText);
+                    if (childUri) {
+                        const childUrl = new URL(childUri, url).href;
+                        const childProbe = await curlProbeStream(childUrl, {
+                            timeoutMs: Math.max(1000, timeoutMs - 500),
+                            depth: depth + 1,
+                        });
+                        if (!childProbe.alive || !childProbe.streamable) {
+                            return {
+                                alive: false,
+                                streamable: false,
+                                status: childProbe.status || 502,
+                                contentType,
+                            };
+                        }
+                    }
+                }
+            } catch {
+                return { alive: false, streamable: false, status: 0 };
+            }
         }
 
         const lowerHeaders = headersText.toLowerCase();

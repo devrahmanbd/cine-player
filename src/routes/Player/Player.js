@@ -538,9 +538,15 @@ const Player = () => {
         video.unload();
 
         if (player.selected && player.stream?.type === 'Ready' && streamingServer.settings?.type !== 'Loading') {
+            const content = player.stream.content || {};
+            const normalizedUrl = typeof content.url === 'string' && typeof window !== 'undefined' && window.location && window.location.protocol === 'https:' && content.url.startsWith('http://')
+                ? content.url.replace(/^http:\/\//i, 'https://')
+                : content.url;
+
             video.load({
                 stream: {
-                    ...player.stream.content,
+                    ...content,
+                    url: normalizedUrl,
                     subtitles: streamSubtitles
                 },
                 autoplay: true,

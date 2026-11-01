@@ -67,6 +67,24 @@ describe('streams-probe', () => {
                 return;
             }
 
+            if (req.url === '/good.m3u8') {
+                res.writeHead(200, { 'content-type': 'application/vnd.apple.mpegurl' });
+                res.end('#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=1000\n/video.mp4\n');
+                return;
+            }
+
+            if (req.url === '/broken.m3u8') {
+                res.writeHead(200, { 'content-type': 'application/vnd.apple.mpegurl' });
+                res.end('#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=1000\n/dead-child.m3u8\n');
+                return;
+            }
+
+            if (req.url === '/dead-child.m3u8') {
+                res.writeHead(502, { 'content-type': 'text/plain' });
+                res.end('origin unavailable');
+                return;
+            }
+
             res.writeHead(500);
             res.end();
         });
@@ -140,5 +158,27 @@ describe('streams-probe', () => {
         assert.equal(data.results[videoUrl].alive, true);
         // Repeat call from cache should be sub-50ms
         assert.ok(elapsed < 100);
+    });
+
+    it('recursively probes m3u8 playlists and rejects playlists pointing to dead origins', async () => {
+        const goodM3u8 = `${mockMediaBase}/good.m3u8`;
+        const brokenM3u8 = `${mockMediaBase}/broken.m3u8`;
+
+        const res = await fetch(`${base}/api/streams/probe`, {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ urls: [goodM3u8, brokenM3u8] }),
+        });
+        assert.equal(res.status, 200);
+        const data = await res.json();
+
+        assert.ok(data.results[goodM3u8]);
+        assert.equal(data.results[goodM3u8].alive, true);
+        assert.equal(data.results[goodM3u8].streamable, true);
+
+        assert.ok(data.results[brokenM3u8]);
+        assert.equal(data.results[brokenM3u8].alive, false);
+        assert.equal(data.results[brokenM3u8].streamable, false);
+        assert.equal(data.results[brokenM3u8].status, 502);
     });
 });

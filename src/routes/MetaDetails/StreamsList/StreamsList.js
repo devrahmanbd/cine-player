@@ -17,6 +17,14 @@ const { fetchBlockedPatterns } = require('../../../branding/streamPatterns');
 const { usePlatform, useProfile } = require('stremio/common');
 const { default: SeasonEpisodePicker } = require('../EpisodePicker');
 
+const upgradeToHttps = (url) => {
+    if (typeof url !== 'string') return url;
+    if (typeof window !== 'undefined' && window.location && window.location.protocol === 'https:' && url.startsWith('http://')) {
+        return url.replace(/^http:\/\//i, 'https://');
+    }
+    return url;
+};
+
 const ALL_ADDONS_KEY = 'ALL';
 
 const StreamsList = ({ className, video, type, externalPlayerCallbackCanMarkWatched, onEpisodeSearch, ...props }) => {
@@ -63,7 +71,12 @@ const StreamsList = ({ className, video, type, externalPlayerCallbackCanMarkWatc
             if (addonGroup?.content?.type !== 'Ready' || !Array.isArray(addonGroup?.content?.content)) continue;
             for (const s of addonGroup.content.content) {
                 if (s && typeof s.url === 'string' && /^https?:\/\//i.test(s.url)) {
-                    if (!probedUrlsRef.current.has(s.url) && !inFlightUrlsRef.current.has(s.url)) {
+                    const u = upgradeToHttps(s.url);
+                    if (!probedUrlsRef.current.has(u) && !inFlightUrlsRef.current.has(u)) {
+                        inFlightUrlsRef.current.add(u);
+                        urlsToProbe.push(u);
+                    }
+                    if (u !== s.url && !probedUrlsRef.current.has(s.url) && !inFlightUrlsRef.current.has(s.url)) {
                         inFlightUrlsRef.current.add(s.url);
                         urlsToProbe.push(s.url);
                     }
@@ -129,32 +142,37 @@ const StreamsList = ({ className, video, type, externalPlayerCallbackCanMarkWatc
                         if (typeof stream.infoHash === 'string' && stream.infoHash.length > 0) return true;
                         if (typeof stream.ytId === 'string' && stream.ytId.length > 0) return true;
                         if (typeof stream.url === 'string' && /^https?:\/\//i.test(stream.url)) {
-                            const probe = probeResults[stream.url];
+                            const u = upgradeToHttps(stream.url);
+                            const probe = probeResults[u] || probeResults[stream.url];
                             return Boolean(probe && probe.alive && probe.streamable);
                         }
                         return false;
                     })
-                    .map((stream) => ({
-                        ...stream,
-                        onClick: () => {
-                            core.transport.analytics({
-                                event: 'StreamClicked',
-                                args: {
-                                    stream
-                                }
-                            });
-                            if (profile.settings.playerType !== null) {
-                                core.transport.dispatch({
-                                    action: 'MetaDetails',
+                    .map((stream) => {
+                        const upgradedUrl = typeof stream.url === 'string' ? upgradeToHttps(stream.url) : stream.url;
+                        const finalStream = upgradedUrl !== stream.url ? { ...stream, url: upgradedUrl } : stream;
+                        return {
+                            ...finalStream,
+                            onClick: () => {
+                                core.transport.analytics({
+                                    event: 'StreamClicked',
                                     args: {
-                                        action: 'ExternalPlayerStreamOpened',
-                                        args: stream
+                                        stream: finalStream
                                     }
                                 });
-                            }
-                        },
-                        addonName: streams.addon.manifest.name
-                    }));
+                                if (profile.settings.playerType !== null) {
+                                    core.transport.dispatch({
+                                        action: 'MetaDetails',
+                                        args: {
+                                            action: 'ExternalPlayerStreamOpened',
+                                            args: finalStream
+                                        }
+                                    });
+                                }
+                            },
+                            addonName: streams.addon.manifest.name
+                        };
+                    });
 
                 if (validStreams.length > 0) {
                     streamsByAddon[streams.addon.transportUrl] = {
