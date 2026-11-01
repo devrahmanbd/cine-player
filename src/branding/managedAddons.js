@@ -123,10 +123,21 @@ async function syncManagedAddons(core, managed) {
             }
         }
 
-        // NOTE: deliberately install-only. Uninstalling anything else hits
-        // core-protected builtins (Cinemeta etc.) which reject with noisy
-        // "Addon is protected" error toasts, while visitor-installed addons
-        // can't exist (addon UI is hidden) — so removal can only harm.
+        // Safely uninstall non-managed non-protected community addons (e.g. when replaced or removed by admin)
+        for (const addon of list) {
+            if (!addon || !addon.manifest || !addon.transportUrl) continue;
+            const isProtected = addon.flags && (addon.flags.protected || addon.flags.official);
+            const isBuiltin = addon.manifest.id === 'com.linvo.cinemeta' ||
+                addon.manifest.id.startsWith('com.stremio.') ||
+                addon.manifest.id === 'org.stremio.local';
+            if (!isProtected && !isBuiltin && !managedUrls.has(addon.transportUrl)) {
+                try {
+                    await dispatch(core, 'UninstallAddon', addon);
+                } catch {
+                    // Fail silent on uninstall.
+                }
+            }
+        }
     } catch {
         // Fail silent: boot must never break because of addon sync.
     }

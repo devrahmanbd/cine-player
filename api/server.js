@@ -91,12 +91,33 @@ function send(response, status, body, headers = {}) {
 function normalizeManifestUrl(rawUrl) {
     if (typeof rawUrl !== 'string') return '';
     let url = rawUrl.trim();
+    if (!url) return '';
     if (url.startsWith('stremio://')) {
         const rest = url.slice('stremio://'.length);
         if (/^(127\.0\.0\.1|localhost)(:\d+)?(\/|$)/i.test(rest)) {
             url = 'http://' + rest;
         } else {
             url = 'https://' + rest;
+        }
+    }
+    // Transform configure pages (e.g. /configure or /configure/) to manifest.json
+    url = url.replace(/\/configure\/?(\?.*)?$/i, (match, query) => `/manifest.json${query || ''}`);
+
+    try {
+        const parsed = new URL(url);
+        if (!parsed.pathname.endsWith('/manifest.json')) {
+            if (parsed.pathname === '' || parsed.pathname === '/') {
+                parsed.pathname = '/manifest.json';
+                url = parsed.toString();
+            } else if (parsed.pathname.endsWith('/')) {
+                parsed.pathname = parsed.pathname + 'manifest.json';
+                url = parsed.toString();
+            }
+        }
+    } catch {
+        // Fallback for non-standard URLs
+        if (url.endsWith('/')) {
+            url = url + 'manifest.json';
         }
     }
     return url;
@@ -445,7 +466,7 @@ function startServer({ port = 3001, host = process.env.BIND_HOST || '127.0.0.1',
                         return {
                             id: row.id,
                             manifest_url: row.manifest_url,
-                            name: meta.name || row.name,
+                            name: row.name || meta.name,
                             enabled: row.enabled === 1,
                             position: row.position,
                             version: meta.version,
@@ -502,6 +523,195 @@ function startServer({ port = 3001, host = process.env.BIND_HOST || '127.0.0.1',
                 }
             }
 
+            if (request.method === 'GET' && url.pathname === '/api/admin/addons/export') {
+                if (!authed) return send(response, 401, { error: 'unauthorized' });
+                const rows = await db.query(
+                    'SELECT id, manifest_url, name, enabled, position FROM addons ORDER BY position ASC, id ASC'
+                );
+                const list = await Promise.all(
+                    rows.map(async (row) => {
+                        const meta = await getAddonManifestMeta(row.manifest_url);
+                        return {
+                            id: row.id,
+                            manifest_url: row.manifest_url,
+                            transportUrl: row.manifest_url,
+                            name: row.name || meta.name,
+                            enabled: row.enabled === 1,
+                            position: row.position,
+                            version: meta.version || '',
+                            description: meta.description || '',
+                            logo: meta.logo || '',
+                            types: meta.types || [],
+                            resources: meta.resources || [],
+                            catalogs: meta.catalogs || [],
+                            behaviorHints: meta.behaviorHints || {},
+                            configurable: meta.configurable || false,
+                            configurationRequired: meta.configurationRequired || false,
+                            manifest: meta.manifest || null,
+                        };
+                    })
+                );
+                return send(response, 200, {
+                    version: '1.0',
+                    exported_at: new Date().toISOString(),
+                    total: list.length,
+                    addons: list,
+                });
+            }
+
+            if (request.method === 'POST' && url.pathname === '/api/admin/addons/import') {
+                if (!authed) return send(response, 401, { error: 'unauthorized' });
+                const body = await readJson(request, 1024 * 1024);
+                const mode = body && body.mode === 'replace' ? 'replace' : 'merge';
+                const enableAll = !!(body && body.enableAll);
+
+                let rawList = [];
+                if (Array.isArray(body)) {
+                    rawList = body;
+                } else if (body && Array.isArray(body.addons)) {
+                    rawList = body.addons;
+                } else if (body && body.profile && Array.isArray(body.profile.addons)) {
+                    rawList = body.profile.addons;
+                } else if (body && (typeof body.raw === 'string' || typeof body.input === 'string')) {
+                    const rawStr = String(body.raw || body.input || '').trim();
+                    if (rawStr.startsWith('[') || rawStr.startsWith('{')) {
+                        try {
+                            const parsed = JSON.parse(rawStr);
+                            if (Array.isArray(parsed)) rawList = parsed;
+                            else if (parsed && Array.isArray(parsed.addons)) rawList = parsed.addons;
+                            else if (parsed && parsed.profile && Array.isArray(parsed.profile.addons)) rawList = parsed.profile.addons;
+                        } catch (_) {
+                            rawList = rawStr.split(/[\r\n,]+/).map((s) => s.trim()).filter((s) => s.length > 0 && !s.startsWith('#'));
+                        }
+                    } else {
+                        rawList = rawStr.split(/[\r\n,]+/).map((s) => s.trim()).filter((s) => s.length > 0 && !s.startsWith('#'));
+                    }
+                }
+
+                if (!Array.isArray(rawList) || rawList.length === 0) {
+                    return send(response, 400, { error: 'no addons to import' });
+                }
+
+                if (mode === 'replace') {
+                    await db.query('DELETE FROM addons');
+                    manifestMetaCache.clear();
+                }
+
+                let importedCount = 0;
+                let updatedCount = 0;
+                let failedCount = 0;
+                const details = [];
+
+                for (let i = 0; i < rawList.length; i++) {
+                    const entry = rawList[i];
+                    let rawUrl = '';
+                    let itemManifest = null;
+                    let itemName = '';
+                    let itemEnabled = true;
+                    let itemPosition = i;
+
+                    if (typeof entry === 'string') {
+                        rawUrl = entry.trim();
+                    } else if (entry && typeof entry === 'object') {
+                        rawUrl = (entry.manifest_url || entry.transportUrl || entry.url || '').trim();
+                        itemName = typeof entry.name === 'string' ? entry.name.trim() : '';
+                        if (!enableAll && typeof entry.enabled === 'boolean') {
+                            itemEnabled = entry.enabled;
+                        } else if (!enableAll && (entry.enabled === 0 || entry.enabled === 1)) {
+                            itemEnabled = entry.enabled === 1;
+                        }
+                        if (typeof entry.position === 'number' && Number.isFinite(entry.position)) {
+                            itemPosition = Math.trunc(entry.position);
+                        }
+                        if (entry.manifest && typeof entry.manifest === 'object' && typeof entry.manifest.id === 'string') {
+                            itemManifest = entry.manifest;
+                        }
+                    }
+
+                    if (!rawUrl) {
+                        failedCount++;
+                        details.push({ url: '', error: 'missing manifest_url', status: 'error' });
+                        continue;
+                    }
+
+                    const normalized = normalizeManifestUrl(rawUrl);
+                    if (!normalized || (!normalized.startsWith('http://') && !normalized.startsWith('https://'))) {
+                        failedCount++;
+                        details.push({ url: rawUrl, error: 'invalid manifest url scheme', status: 'error' });
+                        continue;
+                    }
+
+                    let manifest = itemManifest;
+                    if (!manifest) {
+                        try {
+                            manifest = await fetchManifest(normalized);
+                        } catch (fetchErr) {
+                            let fallbackSlug = 'addon';
+                            try {
+                                const u = new URL(normalized);
+                                fallbackSlug = u.hostname.replace(/^(www\.|v\d+-)/, '').split('.')[0] || 'addon';
+                            } catch (_) {}
+                            manifest = {
+                                id: `community.${fallbackSlug}.${crypto.createHash('md5').update(normalized).digest('hex').slice(0, 8)}`,
+                                name: itemName || (fallbackSlug.charAt(0).toUpperCase() + fallbackSlug.slice(1)),
+                                version: '1.0.0',
+                                description: 'Community addon',
+                                resources: ['stream'],
+                                types: ['movie', 'series'],
+                                catalogs: [],
+                            };
+                        }
+                    }
+
+                    const finalName = itemName || manifest.name || 'Community Addon';
+
+                    const existing = await db.query('SELECT id, manifest_url, name, enabled, position FROM addons WHERE manifest_url = ?', [
+                        normalized,
+                    ]);
+
+                    if (existing.length > 0) {
+                        const existingId = existing[0].id;
+                        const newEnabled = enableAll ? 1 : (itemEnabled ? 1 : 0);
+                        await db.query(
+                            'UPDATE addons SET name = ?, enabled = ?, position = ? WHERE id = ?',
+                            [finalName, newEnabled, itemPosition, existingId]
+                        );
+                        manifestMetaCache.delete(normalized);
+                        updatedCount++;
+                        details.push({ id: existingId, manifest_url: normalized, name: finalName, action: 'updated', status: 'ok' });
+                    } else {
+                        try {
+                            await db.query(
+                                'INSERT INTO addons (manifest_url, name, enabled, position) VALUES (?, ?, ?, ?)',
+                                [normalized, finalName, itemEnabled ? 1 : 0, itemPosition]
+                            );
+                            const inserted = await db.query('SELECT id FROM addons WHERE manifest_url = ?', [normalized]);
+                            const newId = inserted[0] ? inserted[0].id : null;
+                            importedCount++;
+                            details.push({ id: newId, manifest_url: normalized, name: finalName, action: 'created', status: 'ok' });
+                        } catch (insertErr) {
+                            if (/UNIQUE|unique|duplicate|ER_DUP_ENTRY/i.test(insertErr.message || '')) {
+                                updatedCount++;
+                                details.push({ manifest_url: normalized, name: finalName, action: 'already_exists', status: 'ok' });
+                            } else {
+                                failedCount++;
+                                details.push({ manifest_url: normalized, error: insertErr.message || 'insert failed', status: 'error' });
+                            }
+                        }
+                    }
+                }
+
+                return send(response, 200, {
+                    success: true,
+                    mode,
+                    total: rawList.length,
+                    imported: importedCount,
+                    updated: updatedCount,
+                    failed: failedCount,
+                    details,
+                });
+            }
+
             // Public manifest proxy: some addon hosts bot-wall browsers (403)
             // while serving server-side fetches fine. The requested URL must be
             // an enabled admin addon (allowlist) — never an open proxy.
@@ -510,19 +720,18 @@ function startServer({ port = 3001, host = process.env.BIND_HOST || '127.0.0.1',
                 if (!takeToken(addonManifestLimits, ip, 120, 60 * 1000)) {
                     return send(response, 429, { error: 'rate limited' });
                 }
-                const target = url.searchParams.get('url') || '';
+                const rawTarget = url.searchParams.get('url') || '';
+                const target = normalizeManifestUrl(rawTarget);
                 const allowed = await db.query(
-                    'SELECT id FROM addons WHERE manifest_url = ? AND enabled = 1',
-                    [target]
+                    'SELECT id FROM addons WHERE (manifest_url = ? OR manifest_url = ?) AND enabled = 1',
+                    [target, rawTarget]
                 );
                 if (allowed.length === 0) return send(response, 404, { error: 'unknown addon' });
-                let manifest;
-                try {
-                    manifest = await fetchManifest(target);
-                } catch (error) {
-                    return send(response, error.status || 400, { error: error.message || 'bad manifest' });
+                const meta = await getAddonManifestMeta(target || rawTarget);
+                if (meta && meta.manifest) {
+                    return send(response, 200, meta.manifest);
                 }
-                return send(response, 200, manifest);
+                return send(response, 502, { error: meta.error || 'bad manifest' });
             }
 
             if (request.method === 'POST' && url.pathname === '/api/addons') {

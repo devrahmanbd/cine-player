@@ -69,6 +69,29 @@ const STR = {
     catalogsLabel: 'Catalogs:',
     configNoticeTitle: 'Stremio Addon Configuration & Debrid Guide',
     configNoticeBody: 'Addons that require configuration (such as Debrid streams or custom providers) must be configured in the addon\'s own settings page before streams will work. Click "Configure" to open the configuration page in a new tab, finish your setup there, and then copy the generated manifest URL into "Edit URL".',
+    exportAddons: 'Export Addons',
+    exportAddonsJson: 'Export JSON',
+    copyExportJson: 'Copy JSON',
+    exportCopied: 'Copied JSON!',
+    exportUrls: 'Copy URLs',
+    urlsCopied: 'Copied URLs!',
+    importAddons: 'Bulk Import',
+    closeImport: 'Close Import',
+    importModalTitle: 'Bulk Import Community Addons',
+    importInstructions: 'Paste a JSON export (Stremio/Cinemavilla format) or raw addon URLs (one per line). Community addons with custom configurations, API keys, and Debrid tokens are preserved.',
+    importPlaceholder: 'Paste URLs or JSON here...\nhttps://torrentio.strem.fun/providers=yts|realdebrid=YOUR_TOKEN/manifest.json\nstremio://cyberflix.elfhosted.com/c/manifest.json\nhttps://opensubtitles-v3.strem.io/manifest.json',
+    importFileLabel: 'Or upload .json file:',
+    importModeLabel: 'Import Mode:',
+    importModeMerge: 'Merge (add new, update existing configs)',
+    importModeReplace: 'Replace (clear all and install this list)',
+    enableAllImported: 'Enable all imported addons immediately',
+    importSubmit: 'Start Import',
+    importing: 'Importing addons…',
+    importSuccess: 'Import complete!',
+    importSummary: 'Import summary:',
+    importSummaryDetail: 'Total: {total} | Imported: {imported} | Updated: {updated} | Failed: {failed}',
+    failedExport: 'Failed to export addons',
+    failedImport: 'Import failed: ',
     blockedTitle: 'Blocked patterns',
     blockedPlaceholder: 'Pattern to block',
     blockedAdd: 'Add pattern',
@@ -408,6 +431,98 @@ const AddonsForm = () => {
     const [preview, setPreview] = React.useState(null);
     const [previewLoading, setPreviewLoading] = React.useState(false);
     const [previewError, setPreviewError] = React.useState('');
+    const [showImport, setShowImport] = React.useState(false);
+    const [importText, setImportText] = React.useState('');
+    const [importMode, setImportMode] = React.useState('merge');
+    const [importEnableAll, setImportEnableAll] = React.useState(false);
+    const [importing, setImporting] = React.useState(false);
+    const [importResult, setImportResult] = React.useState(null);
+    const [copiedExport, setCopiedExport] = React.useState(false);
+    const [copiedUrls, setCopiedUrls] = React.useState(false);
+
+    const exportJson = async () => {
+        setStatus('');
+        try {
+            const data = await api('/api/admin/addons/export');
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const downloadUrl = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = downloadUrl;
+            a.download = 'cinemavilla-addons.json';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(downloadUrl);
+        } catch (err) {
+            setStatus(`${STR.failedExport}: ${err.message}`);
+        }
+    };
+
+    const copyExportJson = async () => {
+        setStatus('');
+        try {
+            const data = await api('/api/admin/addons/export');
+            if (navigator && navigator.clipboard) {
+                await navigator.clipboard.writeText(JSON.stringify(data, null, 2));
+                setCopiedExport(true);
+                setTimeout(() => setCopiedExport(false), 2000);
+            }
+        } catch (err) {
+            setStatus(`${STR.failedExport}: ${err.message}`);
+        }
+    };
+
+    const copyExportUrls = async () => {
+        setStatus('');
+        try {
+            const data = await api('/api/admin/addons/export');
+            const urls = (data.addons || []).map((a) => a.manifest_url).join('\n');
+            if (navigator && navigator.clipboard) {
+                await navigator.clipboard.writeText(urls);
+                setCopiedUrls(true);
+                setTimeout(() => setCopiedUrls(false), 2000);
+            }
+        } catch (err) {
+            setStatus(`${STR.failedExport}: ${err.message}`);
+        }
+    };
+
+    const handleImportFile = (event) => {
+        const file = event.target.files && event.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const text = e.target.result;
+            if (typeof text === 'string') {
+                setImportText(text);
+            }
+        };
+        reader.readAsText(file);
+    };
+
+    const submitImport = async () => {
+        if (!importText || !importText.trim()) return;
+        setImporting(true);
+        setStatus('');
+        setImportResult(null);
+        try {
+            const res = await api('/api/admin/addons/import', {
+                method: 'POST',
+                body: JSON.stringify({
+                    raw: importText.trim(),
+                    mode: importMode,
+                    enableAll: importEnableAll,
+                }),
+            });
+            setImportResult(res);
+            await loadAddons();
+            setStatus(STR.importSuccess);
+        } catch (err) {
+            setStatus(`${STR.failedImport}${err.message}`);
+        } finally {
+            setImporting(false);
+        }
+    };
 
     const loadAddons = React.useCallback(async () => {
         try {
@@ -537,6 +652,129 @@ const AddonsForm = () => {
                     {STR.configNoticeBody}
                 </p>
             </div>
+
+            <div className={'admin-addon-toolbar'}>
+                <button
+                    type={'button'}
+                    className={'admin-btn admin-btn-accent'}
+                    onClick={() => setShowImport((v) => !v)}
+                >
+                    {showImport ? STR.closeImport : STR.importAddons}
+                </button>
+                <button
+                    type={'button'}
+                    className={'admin-btn'}
+                    onClick={exportJson}
+                >
+                    {STR.exportAddonsJson}
+                </button>
+                <button
+                    type={'button'}
+                    className={'admin-btn'}
+                    onClick={copyExportJson}
+                >
+                    {copiedExport ? STR.exportCopied : STR.copyExportJson}
+                </button>
+                <button
+                    type={'button'}
+                    className={'admin-btn'}
+                    onClick={copyExportUrls}
+                >
+                    {copiedUrls ? STR.urlsCopied : STR.exportUrls}
+                </button>
+            </div>
+
+            {showImport ? (
+                <div className={'admin-import-card'}>
+                    <h3>{STR.importModalTitle}</h3>
+                    <p style={{ margin: '0 0 10px 0', fontSize: '13px', color: '#aaa', lineHeight: 1.4 }}>
+                        {STR.importInstructions}
+                    </p>
+                    <div style={{ marginBottom: '10px' }}>
+                        <label style={{ fontSize: '12px', color: '#ccc', display: 'block', marginBottom: '4px' }}>
+                            {STR.importFileLabel}
+                        </label>
+                        <input
+                            type={'file'}
+                            accept={'.json,application/json'}
+                            onChange={handleImportFile}
+                            style={{ fontSize: '12px' }}
+                        />
+                    </div>
+                    <textarea
+                        rows={7}
+                        className={'admin-import-textarea'}
+                        value={importText}
+                        placeholder={STR.importPlaceholder}
+                        onChange={(e) => setImportText(e.target.value)}
+                    />
+                    <div className={'admin-import-options'}>
+                        <div style={{ display: 'flex', gap: '16px', alignItems: 'center', flexWrap: 'wrap' }}>
+                            <span style={{ fontSize: '13px', color: '#ddd', fontWeight: 600 }}>{STR.importModeLabel}</span>
+                            <label style={{ fontSize: '13px', display: 'inline-flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}>
+                                <input
+                                    type={'radio'}
+                                    name={'importMode'}
+                                    value={'merge'}
+                                    checked={importMode === 'merge'}
+                                    onChange={() => setImportMode('merge')}
+                                />
+                                {STR.importModeMerge}
+                            </label>
+                            <label style={{ fontSize: '13px', display: 'inline-flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}>
+                                <input
+                                    type={'radio'}
+                                    name={'importMode'}
+                                    value={'replace'}
+                                    checked={importMode === 'replace'}
+                                    onChange={() => setImportMode('replace')}
+                                />
+                                {STR.importModeReplace}
+                            </label>
+                        </div>
+                        <label style={{ fontSize: '13px', display: 'inline-flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
+                            <input
+                                type={'checkbox'}
+                                checked={importEnableAll}
+                                onChange={(e) => setImportEnableAll(e.target.checked)}
+                            />
+                            {STR.enableAllImported}
+                        </label>
+                    </div>
+                    <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginTop: '10px' }}>
+                        <button
+                            type={'button'}
+                            className={'admin-btn admin-btn-accent'}
+                            disabled={importing || !importText.trim()}
+                            onClick={submitImport}
+                        >
+                            {importing ? STR.importing : STR.importSubmit}
+                        </button>
+                        <button
+                            type={'button'}
+                            className={'admin-btn'}
+                            onClick={() => {
+                                setShowImport(false);
+                                setImportResult(null);
+                            }}
+                        >
+                            {STR.cancel}
+                        </button>
+                    </div>
+                    {importResult ? (
+                        <div className={'admin-import-summary'}>
+                            <strong>{STR.importSummary} </strong>
+                            <span>
+                                {STR.importSummaryDetail
+                                    .replace('{total}', String(importResult.total || 0))
+                                    .replace('{imported}', String(importResult.imported || 0))
+                                    .replace('{updated}', String(importResult.updated || 0))
+                                    .replace('{failed}', String(importResult.failed || 0))}
+                            </span>
+                        </div>
+                    ) : null}
+                </div>
+            ) : null}
 
             {addons.length === 0 ? <div>{STR.noAddons}</div> : null}
 
