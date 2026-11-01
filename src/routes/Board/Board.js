@@ -14,8 +14,6 @@ const AdSlot = require('../../components/AdSlot/AdSlot');
 const SmartlinkCTA = require('../../components/SmartlinkCTA/SmartlinkCTA');
 const Billboard = require('../../components/Netflix/Billboard');
 
-const VERIFICATION_CODE = 'A7B2C9D';
-
 const THRESHOLD = 5;
 
 // Catalog sections the house never shows (curated out): YouTube channels
@@ -304,9 +302,6 @@ const Board = () => {
                         }
                     })}
                     <SmartlinkCTA />
-                    <footer className={styles['board-footer']} data-testid="verification-footer">
-                        <p>{VERIFICATION_CODE}</p>
-                    </footer>
                 </div>
             </MainNavBars>
         </div>
