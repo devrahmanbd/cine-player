@@ -288,8 +288,11 @@ const StreamsList = ({ className, video, type, externalPlayerCallbackCanMarkWatc
                                             <div className={styles['label']}>{t('UPCOMING')}...</div>
                                             : null
                                     }
+                                    <div className={styles['no-stream-badge-notice']}>
+                                        <span className={styles['no-stream-pill']}>{t('NO_STREAM_AVAILABLE', { defaultValue: 'No Stream Available' })}</span>
+                                        <p className={styles['no-stream-desc']}>{t('NO_STREAM_DESC', { defaultValue: 'No playable streams were found for this title right now.' })}</p>
+                                    </div>
                                     <Image className={styles['image']} src={require('/assets/images/empty.png')} alt={' '} />
-                                    <div className={styles['label']}>{t('NO_STREAM')}</div>
                                 </div>
                             )
                             :

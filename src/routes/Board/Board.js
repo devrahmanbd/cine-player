@@ -160,42 +160,29 @@ const Board = () => {
         if (Object.keys(availability).length === 0) {
             return catalogRows;
         }
-        const mapped = catalogRows.map(({ catalog, index }) => {
+        return catalogRows.map(({ catalog, index }) => {
             const items = catalog?.items ?? (catalog?.content?.type === 'Ready' ? catalog.content.content : null);
             if (!Array.isArray(items)) {
                 return { catalog, index };
             }
-            const filtered = items.filter((item) => {
+            const mappedItems = items.map((item) => {
                 const key = getAvailabilityKey(catalog, item);
                 if (key === null) {
-                    return true;
+                    return item;
                 }
                 const row = availability[key];
-                if (typeof row === 'undefined') {
-                    return true;
+                if (typeof row === 'undefined' || !isAvailabilityFresh(row)) {
+                    return item;
                 }
-                if (!isAvailabilityFresh(row)) {
-                    return true;
-                }
-                return row.available !== 0;
+                return row.available === 0 ? { ...item, noStream: true } : item;
             });
-            if (filtered.length === items.length) {
-                return { catalog, index };
-            }
             if (Array.isArray(catalog?.items)) {
-                return { catalog: { ...catalog, items: filtered }, index };
+                return { catalog: { ...catalog, items: mappedItems }, index };
             }
             if (catalog?.content?.type === 'Ready' && Array.isArray(catalog.content.content)) {
-                return { catalog: { ...catalog, content: { ...catalog.content, content: filtered } }, index };
+                return { catalog: { ...catalog, content: { ...catalog.content, content: mappedItems } }, index };
             }
             return { catalog, index };
-        });
-        return mapped.filter(({ catalog }) => {
-            const items = catalog?.items ?? (catalog?.content?.type === 'Ready' ? catalog.content.content : null);
-            if (!Array.isArray(items)) {
-                return true;
-            }
-            return items.length > 0;
         });
     }, [catalogRows, availability]);
     const heroItems = React.useMemo(() => {
@@ -212,7 +199,7 @@ const Board = () => {
             for (const item of content) {
                 const hasBackdrop = typeof item?.background === 'string' && item.background.length > 0;
                 const hasName = typeof item?.name === 'string' && item.name.length > 0;
-                if (hasBackdrop && hasName) {
+                if (hasBackdrop && hasName && !item.noStream) {
                     collected.push(item);
                     if (collected.length >= 6) {
                         break;

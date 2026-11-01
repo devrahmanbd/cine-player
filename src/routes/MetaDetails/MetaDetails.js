@@ -18,11 +18,13 @@ const useSeason = require('./useSeason');
 const { default: useExternalPlayerCallback } = require('./useExternalPlayerCallback');
 const styles = require('./styles');
 const AdSlot = require('../../components/AdSlot/AdSlot');
+const MetaRow = require('../../components/MetaRow');
+const MetaItem = require('../../components/MetaItem');
 
 const GAMEPAD_HANDLER_ID = 'metadetails';
 
 const MetaDetails = () => {
-    const { type, id, videoId } = useParams();
+    const { type: paramType, id, videoId } = useParams();
     const location = useLocation();
     const navigate = useNavigate();
     const { getStoredOrigin } = useNavigateWithOrigin();
@@ -31,6 +33,12 @@ const MetaDetails = () => {
     const { t } = useTranslation();
     const core = useCore();
     const profile = useProfile();
+    const type = React.useMemo(() => {
+        if (typeof paramType === 'string' && paramType.length > 0) return paramType;
+        if (location.pathname.startsWith('/movie')) return 'movie';
+        if (location.pathname.startsWith('/series')) return 'series';
+        return 'movie';
+    }, [paramType, location.pathname]);
     const urlParams = React.useMemo(() => ({
         type,
         id,
@@ -38,6 +46,72 @@ const MetaDetails = () => {
     }), [type, id, videoId]);
     const metaDetails = useMetaDetails(urlParams);
     const readyMeta = metaDetails.metaItem?.content.type === 'Ready' ? metaDetails.metaItem.content.content : null;
+
+    React.useEffect(() => {
+        if (!readyMeta || typeof readyMeta.name !== 'string') return;
+        const year = readyMeta.releaseInfo || (readyMeta.released ? new Date(readyMeta.released).getFullYear() : '');
+        const titleStr = year ? `${readyMeta.name} (${year}) - Cinemavilla` : `${readyMeta.name} - Cinemavilla`;
+        document.title = titleStr;
+        let descMeta = document.querySelector('meta[name="description"]');
+        if (!descMeta) {
+            descMeta = document.createElement('meta');
+            descMeta.setAttribute('name', 'description');
+            document.head.appendChild(descMeta);
+        }
+        if (typeof readyMeta.description === 'string') {
+            descMeta.setAttribute('content', readyMeta.description.slice(0, 250));
+        }
+        return () => {
+            document.title = 'Cinemavilla';
+        };
+    }, [readyMeta]);
+
+    const [availabilityRow, setAvailabilityRow] = React.useState(null);
+    React.useEffect(() => {
+        if (!type || !id) return;
+        let cancelled = false;
+        fetch(`/api/availability?keys=${encodeURIComponent(`${type}:${id}`)}`)
+            .then((res) => (res.ok ? res.json() : null))
+            .then((data) => {
+                if (!cancelled && data && data[`${type}:${id}`]) {
+                    setAvailabilityRow(data[`${type}:${id}`]);
+                }
+            })
+            .catch(() => {});
+        return () => {
+            cancelled = true;
+        };
+    }, [type, id]);
+
+    const [relatedCatalog, setRelatedCatalog] = React.useState(null);
+    React.useEffect(() => {
+        if (!readyMeta || !type) return;
+        let cancelled = false;
+        const firstGenre = Array.isArray(readyMeta.genres) && readyMeta.genres[0] ? readyMeta.genres[0] : (
+            Array.isArray(readyMeta.links) ? readyMeta.links.find((l) => l && l.category === 'Genres')?.name : null
+        );
+        const url = firstGenre
+            ? `https://v3-cinemeta.strem.io/catalog/${type}/top/genre=${encodeURIComponent(firstGenre)}.json`
+            : `https://v3-cinemeta.strem.io/catalog/${type}/top.json`;
+        fetch(url)
+            .then((r) => (r.ok ? r.json() : null))
+            .then((data) => {
+                if (!cancelled && data && Array.isArray(data.metas)) {
+                    const filtered = data.metas.filter((m) => m && m.id !== id).slice(0, 10);
+                    if (filtered.length > 0) {
+                        setRelatedCatalog({
+                            name: firstGenre ? `More ${firstGenre} Titles` : 'More Like This',
+                            content: { type: 'Ready', content: filtered }
+                        });
+                    }
+                }
+            })
+            .catch(() => {});
+        return () => {
+            cancelled = true;
+        };
+    }, [readyMeta, type, id]);
+
     const metaAddonUrl = metaDetails.metaItem?.addon.transportUrl;
     const isEpgProvider = React.useMemo(() => {
         return profile.addons.some((addon) => addon.transportUrl === metaAddonUrl && addon.manifest.behaviorHints?.epgProvider === true);
@@ -242,6 +316,7 @@ const MetaDetails = () => {
                                             toggleWatched={toggleWatched}
                                             metaId={metaDetails.metaItem.content.content.id}
                                             ratingInfo={metaDetails.ratingInfo}
+                                            noStream={availabilityRow?.available === 0}
                                         />
                                     </React.Fragment>
                 }
@@ -272,6 +347,18 @@ const MetaDetails = () => {
                             />
                             :
                             null
+                }
+                {
+                    relatedCatalog !== null ?
+                        <div style={{ marginTop: '2rem', padding: '0 1rem' }}>
+                            <MetaRow
+                                catalog={relatedCatalog}
+                                title={relatedCatalog.name}
+                                itemComponent={MetaItem}
+                            />
+                        </div>
+                        :
+                        null
                 }
             </div>
         </div>

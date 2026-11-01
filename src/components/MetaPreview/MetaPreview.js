@@ -27,7 +27,7 @@ const ALLOWED_LINK_REDIRECTS = [
     routesRegexp.metadetails.regexp
 ];
 
-const MetaPreview = React.forwardRef(({ className, compact, name, logo, background, runtime, releaseInfo, released, description, deepLinks, links, trailerStreams, inLibrary, toggleInLibrary, watched, toggleWatched, ratingInfo, metadata, children, actions, showIcon = 'play', onShowClick }, ref) => {
+const MetaPreview = React.forwardRef(({ className, compact, name, logo, background, runtime, releaseInfo, released, description, deepLinks, links, trailerStreams, inLibrary, toggleInLibrary, watched, toggleWatched, ratingInfo, metadata, children, actions, showIcon = 'play', onShowClick, noStream }, ref) => {
     const { t } = useTranslation();
     const [shareModalOpen, openShareModal, closeShareModal] = useBinaryState(false);
     const isMobileLandscape = useMediaQuery(`(max-width: ${screenSizes.xsmall}) and (max-height: ${screenSizes['phone-landscape-size']}) and (orientation: landscape)`);
@@ -130,6 +130,12 @@ const MetaPreview = React.forwardRef(({ className, compact, name, logo, backgrou
                 {
                     metadata !== undefined ? metadata : (typeof releaseInfo === 'string' && releaseInfo.length > 0) || (released instanceof Date && !isNaN(released.getTime())) || (typeof runtime === 'string' && runtime.length > 0) || linksGroups.has(CONSTANTS.IMDB_LINK_CATEGORY) ?
                         <div className={styles['runtime-release-info-container']}>
+                            {
+                                noStream ?
+                                    <div className={styles['no-stream-pill']}>{t('NO_STREAM_AVAILABLE', { defaultValue: 'No Stream Available' })}</div>
+                                    :
+                                    null
+                            }
                             {
                                 typeof runtime === 'string' && runtime.length > 0 ?
                                     <div className={styles['runtime-label']}>{runtime}</div>
@@ -307,6 +313,7 @@ MetaPreview.propTypes = {
     toggleWatched: PropTypes.func,
     ratingInfo: PropTypes.object,
     onShowClick: PropTypes.func,
+    noStream: PropTypes.bool,
 };
 
 module.exports = MetaPreview;

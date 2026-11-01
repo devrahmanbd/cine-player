@@ -16,7 +16,7 @@ const { default: getMetaDetailsHref } = require('stremio/common/getMetaDetailsHr
 const { ICON_FOR_TYPE } = require('stremio/common/CONSTANTS');
 const styles = require('./styles');
 
-const MetaItem = React.memo(({ className, type, name, poster, posterShape, posterChangeCursor, progress, newVideos, options, actionMenu, deepLinks, href: customHref, dataset, optionOnSelect, onDismissClick, onPlayClick, watched, live, ...props }) => {
+const MetaItem = React.memo(({ className, type, name, poster, posterShape, posterChangeCursor, progress, newVideos, options, actionMenu, deepLinks, href: customHref, dataset, optionOnSelect, onDismissClick, onPlayClick, watched, live, noStream, ...props }) => {
     const { t } = useTranslation();
     const artwork = poster && typeof poster === 'object' ? poster : { src: poster, shape: posterShape, changeCursor: posterChangeCursor };
     const { navigateWithOrigin } = useNavigateWithOrigin();
@@ -139,6 +139,14 @@ const MetaItem = React.memo(({ className, type, name, poster, posterShape, poste
                             live ?
                                 <div className={styles['live-badge-layer']}>
                                     <div className={styles['live-badge-label']}>{t('PLAYER_LIVE', { defaultValue: 'Live' })}</div>
+                                </div>
+                                :
+                                null
+                        }
+                        {
+                            noStream ?
+                                <div className={styles['no-stream-badge-layer']}>
+                                    <div className={styles['no-stream-badge-label']}>{t('NO_STREAM_AVAILABLE', { defaultValue: 'No Stream' })}</div>
                                 </div>
                                 :
                                 null
@@ -266,7 +274,8 @@ MetaItem.propTypes = {
     onPlayClick: PropTypes.func,
     onClick: PropTypes.func,
     watched: PropTypes.bool,
-    live: PropTypes.bool
+    live: PropTypes.bool,
+    noStream: PropTypes.bool
 };
 
 module.exports = MetaItem;

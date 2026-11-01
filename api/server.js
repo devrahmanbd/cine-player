@@ -9,6 +9,7 @@ const { openDb } = require('./db');
 const { createSchema, seedDefaults, hashPassword, verifyPassword, SLOT_KEYS } = require('./seed');
 const { normalizeEmail, validEmail, validPassword, newToken, sha256hex, takeToken, otpCode } = require('./users');
 const { resolveAvailability } = require('./availability');
+const { generateSitemapXml, defaultEngine } = require('./sitemap');
 const { curlJson, curlProbeStream } = require('./curlfetch');
 const { sendMail } = require('./smtp');
 
@@ -1191,6 +1192,76 @@ function startServer({ port = 3001, host = process.env.BIND_HOST || '127.0.0.1',
                 return send(response, 200, result);
             }
 
+            if (request.method === 'GET' && url.pathname === '/api/sitemap/stats') {
+                const stats = await defaultEngine.getStats({ db });
+                return send(response, 200, { status: 'ok', stats });
+            }
+
+            if (request.method === 'POST' && url.pathname === '/api/admin/sitemap/refresh') {
+                if (!authed) return send(response, 401, { error: 'unauthorized' });
+                const rawHost = request.headers['x-forwarded-host'] || request.headers['x-host'] || request.headers.host || 'cinemavilla.cc';
+                let host = String(rawHost).split(':')[0];
+                if (!host || host === '127.0.0.1' || host === 'localhost') host = 'cinemavilla.cc';
+                const result = await defaultEngine.refreshAllSitemaps({ db, host });
+                return send(response, 200, { success: true, stats: result.stats });
+            }
+
+            if (request.method === 'GET' && (url.pathname === '/sitemap-all.xml' || url.pathname === '/api/sitemap-all.xml')) {
+                const rawHost = request.headers['x-forwarded-host'] || request.headers['x-host'] || request.headers.host || 'cinemavilla.cc';
+                let host = String(rawHost).split(':')[0];
+                if (!host || host === '127.0.0.1' || host === 'localhost') host = 'cinemavilla.cc';
+                const xml = await defaultEngine.getSitemap('all', { db, host });
+                response.writeHead(200, {
+                    'content-type': 'application/xml; charset=utf-8',
+                    'cache-control': 'public, max-age=3600',
+                });
+                return response.end(xml);
+            }
+
+            if (request.method === 'GET' && (url.pathname.startsWith('/sitemaps/') || url.pathname.startsWith('/api/sitemaps/'))) {
+                const rawHost = request.headers['x-forwarded-host'] || request.headers['x-host'] || request.headers.host || 'cinemavilla.cc';
+                let host = String(rawHost).split(':')[0];
+                if (!host || host === '127.0.0.1' || host === 'localhost') host = 'cinemavilla.cc';
+                const sitemapId = url.pathname.replace(/^\/(?:api\/)?sitemaps\//, '').replace(/\.xml$/, '');
+                const validIds = ['trending-movies', 'popular-movies', 'trending-series', 'catalog', 'all', 'index'];
+                if (!validIds.includes(sitemapId)) {
+                    return send(response, 404, { error: 'sitemap not found' });
+                }
+                const xml = await defaultEngine.getSitemap(sitemapId, { db, host });
+                response.writeHead(200, {
+                    'content-type': 'application/xml; charset=utf-8',
+                    'cache-control': 'public, max-age=3600',
+                });
+                return response.end(xml);
+            }
+
+            if (request.method === 'GET' && (url.pathname === '/sitemap.xml' || url.pathname === '/api/sitemap.xml' || url.pathname === '/sitemap.cml' || url.pathname === '/api/sitemap.cml')) {
+                const rawHost = request.headers['x-forwarded-host'] || request.headers['x-host'] || request.headers.host || 'cinemavilla.cc';
+                let host = String(rawHost).split(':')[0];
+                if (!host || host === '127.0.0.1' || host === 'localhost') {
+                    host = 'cinemavilla.cc';
+                }
+                const forceRefresh = url.searchParams.get('refresh') === '1';
+                const xml = await defaultEngine.getSitemap('all', { db, host, forceRefresh });
+                response.writeHead(200, {
+                    'content-type': 'application/xml; charset=utf-8',
+                    'cache-control': 'public, max-age=3600',
+                });
+                return response.end(xml);
+            }
+
+            if (request.method === 'GET' && (url.pathname === '/robots.txt' || url.pathname === '/api/robots.txt')) {
+                const rawHost = request.headers['x-forwarded-host'] || request.headers['x-host'] || request.headers.host || 'cinemavilla.cc';
+                let host = String(rawHost).split(':')[0];
+                if (!host || host === '127.0.0.1' || host === 'localhost') host = 'cinemavilla.cc';
+                const robots = `User-agent: *\nAllow: /\nDisallow: /api/\nDisallow: /admin\nDisallow: /streaming/\nDisallow: /settings\nDisallow: /network-info\n\nSitemap: https://${host}/sitemap.xml\n`;
+                response.writeHead(200, {
+                    'content-type': 'text/plain; charset=utf-8',
+                    'cache-control': 'public, max-age=86400',
+                });
+                return response.end(robots);
+            }
+
             return send(response, 404, { error: 'not found' });
         } catch (error) {
             const status = error.status || 500;
@@ -1215,7 +1286,15 @@ if (require.main === module) {
         siteName: process.env.SITE_NAME,
     })
         .then(() => startServer({ port: Number(process.env.PORT || 3001), host: process.env.BIND_HOST || '127.0.0.1', db }))
-        .then(({ port, host }) => console.log(`api listening on ${host}:${port}`))
+        .then(({ port, host }) => {
+            console.log(`api listening on ${host}:${port}`);
+            const SITEMAP_INTERVAL_MS = 6 * 60 * 60 * 1000;
+            setInterval(() => {
+                defaultEngine.refreshAllSitemaps({ db }).catch((err) => {
+                    console.error('background sitemap refresh error:', err && err.message ? err.message : err);
+                });
+            }, SITEMAP_INTERVAL_MS);
+        })
         .catch((error) => {
             console.error(error);
             process.exit(1);

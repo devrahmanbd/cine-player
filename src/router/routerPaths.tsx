@@ -2,7 +2,7 @@
 
 import React from 'react';
 import routes from 'stremio/routes';
-import { PLAYER_PATH, META_DETAILS_PATH, LEGACY_META_DETAILS_PATH } from './getBackFallback';
+import { PLAYER_PATH, META_DETAILS_PATH, LEGACY_META_DETAILS_PATH, MOVIE_PATH, SERIES_PATH } from './getBackFallback';
 
 export default [
     {
@@ -34,6 +34,16 @@ export default [
         path: '/search',
         view: 1,
         element: <routes.Search />,
+    },
+    {
+        path: MOVIE_PATH,
+        view: 2,
+        element: <routes.MetaDetails />,
+    },
+    {
+        path: SERIES_PATH,
+        view: 2,
+        element: <routes.MetaDetails />,
     },
     {
         path: META_DETAILS_PATH,

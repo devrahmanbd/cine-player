@@ -89,3 +89,26 @@ CREATE TABLE IF NOT EXISTS ads_settings (
     id INTEGER PRIMARY KEY,
     master_enabled INTEGER NOT NULL DEFAULT 0
 );
+CREATE TABLE IF NOT EXISTS tmdb_trending_cache (
+    id INTEGER PRIMARY KEY,
+    media_type TEXT NOT NULL DEFAULT 'movie',
+    tmdb_id INTEGER NOT NULL,
+    imdb_id TEXT NOT NULL DEFAULT '',
+    title TEXT NOT NULL,
+    release_date TEXT NOT NULL DEFAULT '',
+    poster_path TEXT NOT NULL DEFAULT '',
+    backdrop_path TEXT NOT NULL DEFAULT '',
+    popularity REAL NOT NULL DEFAULT 0,
+    vote_average REAL NOT NULL DEFAULT 0,
+    trending_window TEXT NOT NULL DEFAULT 'day',
+    updated_at TEXT NOT NULL DEFAULT '',
+    UNIQUE(media_type, tmdb_id, trending_window)
+);
+CREATE TABLE IF NOT EXISTS sitemaps_cache (
+    sitemap_id TEXT PRIMARY KEY,
+    xml_content TEXT NOT NULL,
+    url_count INTEGER NOT NULL DEFAULT 0,
+    source_stats TEXT NOT NULL DEFAULT '{}',
+    updated_at TEXT NOT NULL DEFAULT ''
+);
+

@@ -5,6 +5,7 @@
 const { openDb } = require('./db');
 const { createSchema } = require('./seed');
 const { resolveAvailability, manifestBase, fetchJson } = require('./availability');
+const { defaultEngine } = require('./sitemapEngine');
 
 const CINEMETA_BASE = 'https://v3-cinemeta.strem.io/catalog';
 
@@ -113,6 +114,12 @@ async function main() {
     try {
         const result = await resolveAvailability(db, items);
         console.log(`worker: checked=${result.checked} available=${result.available}`);
+        try {
+            const { stats } = await defaultEngine.refreshAllSitemaps({ db });
+            console.log(`worker: sitemap refreshed (trending_movies=${stats.trending_movies}, total_urls=${stats.total_unique_urls})`);
+        } catch (sitemapErr) {
+            console.log(`worker: sitemap refresh non-fatal error: ${sitemapErr.message || sitemapErr}`);
+        }
         await db.close();
     } catch (error) {
         console.error(`worker resolve failed: ${error.message || error}`);
