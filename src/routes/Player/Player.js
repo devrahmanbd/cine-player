@@ -539,9 +539,18 @@ const Player = () => {
 
         if (player.selected && player.stream?.type === 'Ready' && streamingServer.settings?.type !== 'Loading') {
             const content = player.stream.content || {};
-            const normalizedUrl = typeof content.url === 'string' && typeof window !== 'undefined' && window.location && window.location.protocol === 'https:' && content.url.startsWith('http://')
-                ? content.url.replace(/^http:\/\//i, 'https://')
-                : content.url;
+            let normalizedUrl = content.url;
+            if (typeof normalizedUrl === 'string') {
+                normalizedUrl = normalizedUrl.replace(/([^:])\/\/+/g, '$1/');
+                if (typeof window !== 'undefined' && window.location && window.location.protocol === 'https:' && normalizedUrl.startsWith('http://')) {
+                    normalizedUrl = normalizedUrl.replace(/^http:\/\//i, 'https://');
+                }
+            }
+
+            const rawServerUrl = streamingServer.baseUrl ?
+                (casting ? streamingServer.baseUrl : streamingServer.selected.transportUrl)
+                : null;
+            const normalizedServerUrl = typeof rawServerUrl === 'string' ? rawServerUrl.replace(/\/+$/, '') : null;
 
             video.load({
                 stream: {
@@ -564,13 +573,7 @@ const Player = () => {
                 gpuVideoProcessing: settings.gpuVideoProcessing && platform.shell.capabilities.gpuVideoProcessing,
                 videoMode: settings.videoMode,
                 platform: platform.name,
-                streamingServerURL: streamingServer.baseUrl ?
-                    casting ?
-                        streamingServer.baseUrl
-                        :
-                        streamingServer.selected.transportUrl
-                    :
-                    null,
+                streamingServerURL: normalizedServerUrl,
                 seriesInfo: player.seriesInfo,
             }, {
                 chromecastTransport: services.chromecast.active ? services.chromecast.transport : null,

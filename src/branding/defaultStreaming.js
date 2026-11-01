@@ -6,13 +6,13 @@
 // Fail-silent by design: boot must never break because of this.
 function proxyStreamingUrl() {
     if (typeof window !== 'undefined' && window.location && window.location.origin) {
-        return `${window.location.origin}/streaming/`;
+        return `${window.location.origin}/streaming`;
     }
-    return 'http://127.0.0.1:11470/';
+    return 'http://127.0.0.1:11470';
 }
 
 function isLocalhostUrl(url) {
-    return /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d+)?\//i.test(String(url || ''));
+    return /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d+)?\/?$/i.test(String(url || ''));
 }
 
 function sanitizeProfileLocalStorage() {
@@ -30,7 +30,7 @@ function sanitizeProfileLocalStorage() {
         if (!profile.settings || typeof profile.settings !== 'object') {
             profile.settings = {};
         }
-        if (!profile.settings.streamingServerUrl || isLocalhostUrl(profile.settings.streamingServerUrl)) {
+        if (!profile.settings.streamingServerUrl || isLocalhostUrl(profile.settings.streamingServerUrl) || profile.settings.streamingServerUrl.endsWith('/')) {
             profile.settings.streamingServerUrl = proxyUrl;
             changed = true;
         }
@@ -38,8 +38,8 @@ function sanitizeProfileLocalStorage() {
         if (Array.isArray(profile.addons)) {
             profile.addons.forEach((addon) => {
                 if (addon && addon.manifest && addon.manifest.id === 'org.stremio.local') {
-                    if (isLocalhostUrl(addon.transportUrl)) {
-                        addon.transportUrl = `${proxyUrl}local-addon/manifest.json`;
+                    if (isLocalhostUrl(addon.transportUrl) || addon.transportUrl.includes('/streaming//')) {
+                        addon.transportUrl = `${proxyUrl}/local-addon/manifest.json`;
                         changed = true;
                     }
                 }
