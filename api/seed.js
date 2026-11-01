@@ -19,16 +19,16 @@ const SLOT_KEYS = [
 
 // User-supplied Adsterra snippets (issued for the approved domain).
 const DEFAULT_CODES = {
-    popunder: '<script data-cfasync="false" src="https://aarems.org/1/cf84ac078618f3eea9a1d09070edf8a8"></script>',
-    socialbar: '<script data-cfasync="false" src="https://bancadeltempoidea.org/14/7cd8561936cbc7daec3da7e0bfb2f944"></script>',
-    native: '<script async="async" data-cfasync="false" src="https://bancadeltempoidea.org/21/6b90d708990a702feabd4e7f1fd670a1"></script>\n<div id="container-6b90d708990a702feabd4e7f1fd670a1"></div>',
-    banner_468x60: `<script>\n  atOptions = {\n    'key' : 'c6bedc1fd1907dc0cf16af7618769514',\n    'format' : 'iframe',\n    'height' : 60,\n    'width' : 468,\n    'params' : {}\n  };\n</script>\n<script src="https://bancadeltempoidea.org/22/c6bedc1fd1907dc0cf16af7618769514"></script>`,
-    banner_300x250: `<script>\n  atOptions = {\n    'key' : '64491af9cee349057a6acaadc90c0581',\n    'format' : 'iframe',\n    'height' : 250,\n    'width' : 300,\n    'params' : {}\n  };\n</script>\n<script src="https://bancadeltempoidea.org/22/64491af9cee349057a6acaadc90c0581"></script>`,
-    banner_160x600: `<script>\n  atOptions = {\n    'key' : '43147d3e4b34aaab2e5ae87f14e1fb9b',\n    'format' : 'iframe',\n    'height' : 600,\n    'width' : 160,\n    'params' : {}\n  };\n</script>\n<script src="https://bancadeltempoidea.org/22/43147d3e4b34aaab2e5ae87f14e1fb9b"></script>`,
-    banner_160x300: `<script>\n  atOptions = {\n    'key' : '2ce0f5502991de160a917a257bd53b5f',\n    'format' : 'iframe',\n    'height' : 300,\n    'width' : 160,\n    'params' : {}\n  };\n</script>\n<script src="https://bancadeltempoidea.org/22/2ce0f5502991de160a917a257bd53b5f"></script>`,
-    banner_320x50: `<script>\n  atOptions = {\n    'key' : '03c4ec6bde414379df04104482241ca8',\n    'format' : 'iframe',\n    'height' : 50,\n    'width' : 320,\n    'params' : {}\n  };\n</script>\n<script src="https://bancadeltempoidea.org/22/03c4ec6bde414379df04104482241ca8"></script>`,
-    banner_728x90: `<script>\n  atOptions = {\n    'key' : '86289bed48d62b2e1f8a158fe935d4ac',\n    'format' : 'iframe',\n    'height' : 90,\n    'width' : 728,\n    'params' : {}\n  };\n</script>\n<script src="https://bancadeltempoidea.org/22/86289bed48d62b2e1f8a158fe935d4ac"></script>`,
-    smartlink: 'https://directyp.org/4/1cc5cefd604de292f5efef7a5e835b4c',
+    popunder: '<script data-cfasync="false" src="https://aarems.org/1/313bd5fb62477d0c25f52d3f04f81211"></script>',
+    socialbar: '<script data-cfasync="false" src="https://bancadeltempoidea.org/14/dbd87e015d2a9d84b84114a873a91bd1"></script>',
+    native: '<script async="async" data-cfasync="false" src="https://bancadeltempoidea.org/21/b1c754dac0ec6857e5ce1498458bf3e1"></script>\n<div id="container-b1c754dac0ec6857e5ce1498458bf3e1"></div>',
+    banner_468x60: `<script>\n  atOptions = {\n    'key' : 'becc98e0a3deef529d4ce6e3adf54218',\n    'format' : 'iframe',\n    'height' : 60,\n    'width' : 468,\n    'params' : {}\n  };\n</script>\n<script src="https://bancadeltempoidea.org/22/becc98e0a3deef529d4ce6e3adf54218"></script>`,
+    banner_300x250: `<script>\n  atOptions = {\n    'key' : '2ee4b653a9b12958e96c7fb46b22cc08',\n    'format' : 'iframe',\n    'height' : 250,\n    'width' : 300,\n    'params' : {}\n  };\n</script>\n<script src="https://bancadeltempoidea.org/22/2ee4b653a9b12958e96c7fb46b22cc08"></script>`,
+    banner_160x600: `<script>\n  atOptions = {\n    'key' : '086d729712b80253dab54ddec6b2bc74',\n    'format' : 'iframe',\n    'height' : 600,\n    'width' : 160,\n    'params' : {}\n  };\n</script>\n<script src="https://bancadeltempoidea.org/22/086d729712b80253dab54ddec6b2bc74"></script>`,
+    banner_160x300: `<script>\n  atOptions = {\n    'key' : '08096020fee676036f3e5ad004e3ce3c',\n    'format' : 'iframe',\n    'height' : 300,\n    'width' : 160,\n    'params' : {}\n  };\n</script>\n<script src="https://bancadeltempoidea.org/22/08096020fee676036f3e5ad004e3ce3c"></script>`,
+    banner_320x50: `<script>\n  atOptions = {\n    'key' : '44feb3265f61b038b54305049169cd3d',\n    'format' : 'iframe',\n    'height' : 50,\n    'width' : 320,\n    'params' : {}\n  };\n</script>\n<script src="https://bancadeltempoidea.org/22/44feb3265f61b038b54305049169cd3d"></script>`,
+    banner_728x90: `<script>\n  atOptions = {\n    'key' : '69954bcef4c7b3c128686464967aeb37',\n    'format' : 'iframe',\n    'height' : 90,\n    'width' : 728,\n    'params' : {}\n  };\n</script>\n<script src="https://bancadeltempoidea.org/22/69954bcef4c7b3c128686464967aeb37"></script>`,
+    smartlink: 'https://directyp.org/4/0d2481d8e6c164cdc7d861b2900d1766',
 };
 
 // All units default OFF until the admin enables them from /admin.
