@@ -1440,7 +1440,7 @@ function startServer({ port = 3001, host = process.env.BIND_HOST || '127.0.0.1',
                 return send(response, 200, { url: `/brand/${name}` });
             }
 
-            if (request.method === 'GET' && url.pathname.startsWith('/brand/')) {
+            if ((request.method === 'GET' || request.method === 'HEAD') && url.pathname.startsWith('/brand/')) {
                 const name = path.basename(url.pathname);
                 const ext = path.extname(name).toLowerCase();
                 if (!UPLOAD_EXTS[ext]) return send(response, 404, { error: 'not found' });
@@ -1450,6 +1450,7 @@ function startServer({ port = 3001, host = process.env.BIND_HOST || '127.0.0.1',
                 const file = fs.existsSync(path.join(uploads, name)) ? path.join(uploads, name) : bundled;
                 if (!fs.existsSync(file)) return send(response, 404, { error: 'not found' });
                 response.writeHead(200, { 'content-type': UPLOAD_EXTS[ext] });
+                if (request.method === 'HEAD') return response.end();
                 return fs.createReadStream(file).pipe(response);
             }
 
