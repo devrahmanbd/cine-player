@@ -122,6 +122,17 @@ const STR = {
     adsSavedReload: 'Saved. Reload the site to see changes.',
     adsFailedLoad: 'Failed to load ad settings',
     adsSaveFailed: 'Save failed (session expired? log in again).',
+    subscribersTitle: 'Subscribers',
+    totalSubscribers: 'Total Subscribers',
+    exportCsv: 'Export CSV',
+    copyEmails: 'Copy Emails',
+    emailsCopied: 'Copied Emails!',
+    noSubscribers: 'No subscribers yet.',
+    failedLoadSubscribers: 'Failed to load subscribers',
+    domainBreakdown: 'Domain Breakdown',
+    subscriberEmail: 'Email',
+    subscriberSource: 'Source / Domain',
+    subscriberDate: 'Date',
 };
 
 const BRAND_FIELDS = ['site_name', 'tagline', 'logo_url', 'favicon_url', 'theme', 'accent'];
@@ -1096,6 +1107,98 @@ const UsersForm = () => {
     );
 };
 
+const SubscribersForm = () => {
+    const [data, setData] = React.useState(null);
+    const [status, setStatus] = React.useState('');
+    const [copied, setCopied] = React.useState(false);
+
+    React.useEffect(() => {
+        api('/api/admin/newsletter')
+            .then(setData)
+            .catch(() => setStatus(STR.failedLoadSubscribers));
+    }, []);
+
+    const copyAllEmails = () => {
+        if (!data || !data.subscribers || data.subscribers.length === 0) return;
+        const emails = data.subscribers.map((s) => s.email).join(', ');
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(emails);
+        }
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2500);
+    };
+
+    if (data === null) return <div>{status || STR.loading}</div>;
+
+    const breakdownEntries = Object.entries(data.breakdown || {});
+
+    return (
+        <div>
+            <h2>{STR.subscribersTitle}</h2>
+            <div style={{ display: 'flex', gap: '12px', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap' }}>
+                <span className={'admin-badge admin-badge-configurable'}>
+                    {`${STR.totalSubscribers}: ${data.total || 0}`}
+                </span>
+                <a
+                    href={'/api/admin/newsletter/export'}
+                    download={'newsletter-subscribers.csv'}
+                    className={'admin-btn admin-btn-accent'}
+                    style={{ textDecoration: 'none', display: 'inline-block' }}
+                >
+                    {STR.exportCsv}
+                </a>
+                <button type={'button'} className={'admin-btn'} onClick={copyAllEmails}>
+                    {copied ? STR.emailsCopied : STR.copyEmails}
+                </button>
+            </div>
+
+            {breakdownEntries.length > 0 ? (
+                <div style={{ marginBottom: '16px' }}>
+                    <h3 style={{ fontSize: '14px', marginBottom: '8px' }}>{STR.domainBreakdown}</h3>
+                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                        {breakdownEntries.map(([domain, count]) => (
+                            <span key={domain} className={'admin-badge'}>
+                                {`${domain}: ${count}`}
+                            </span>
+                        ))}
+                    </div>
+                </div>
+            ) : null}
+
+            {data.subscribers.length === 0 ? <div>{STR.noSubscribers}</div> : null}
+
+            {data.subscribers.length > 0 ? (
+                <div style={{ overflowX: 'auto' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px' }}>
+                        <thead>
+                            <tr style={{ borderBottom: '1px solid #333' }}>
+                                <th style={{ padding: '8px' }}>{STR.subscriberEmail}</th>
+                                <th style={{ padding: '8px' }}>{STR.subscriberSource}</th>
+                                <th style={{ padding: '8px' }}>{STR.subscriberDate}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {data.subscribers.map((s) => (
+                                <tr key={s.id} style={{ borderBottom: '1px solid #222' }}>
+                                    <td style={{ padding: '8px' }}>{s.email}</td>
+                                    <td style={{ padding: '8px' }}>
+                                        <span className={'admin-badge admin-badge-adult'}>{s.source || '-'}</span>
+                                    </td>
+                                    <td style={{ padding: '8px', opacity: 0.7 }}>
+                                        {s.created_at ? s.created_at.replace('T', ' ').slice(0, 19) : '-'}
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            ) : null}
+
+            {status ? <div className={'admin-status'}>{status}</div> : null}
+        </div>
+    );
+};
+
 const Admin = () => {
     const [authed, setAuthed] = React.useState(null);
     const [tab, setTab] = React.useState('brand');
@@ -1119,7 +1222,7 @@ const Admin = () => {
         <div className={'admin-page'}>
             <h1>{STR.siteAdmin}</h1>
             <div className={'admin-tabs'}>
-                {['brand', 'ads', 'uploads', 'addons', 'blocked', 'users'].map((name) => (
+                {['brand', 'ads', 'uploads', 'addons', 'blocked', 'users', 'subscribers'].map((name) => (
                     <button key={name} className={tab === name ? 'admin-active' : ''} onClick={() => setTab(name)}>
                         {name}
                     </button>
@@ -1132,6 +1235,7 @@ const Admin = () => {
             {tab === 'addons' ? <AddonsForm /> : null}
             {tab === 'blocked' ? <BlockedPatternsForm /> : null}
             {tab === 'users' ? <UsersForm /> : null}
+            {tab === 'subscribers' ? <SubscribersForm /> : null}
         </div>
     );
 };

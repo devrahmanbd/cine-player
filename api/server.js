@@ -1145,15 +1145,65 @@ function startServer({ port = 3001, host = process.env.BIND_HOST || '127.0.0.1',
                 const body = await readJson(request, 8 * 1024);
                 const email = normalizeEmail(body.email);
                 if (!validEmail(email)) return send(response, 400, { error: 'bad input' });
+
+                const incomingSecret = request.headers['x-central-secret'];
+                const isRelayed = body._relayed === true || !!(process.env.CENTRAL_EMAIL_SECRET && incomingSecret === process.env.CENTRAL_EMAIL_SECRET);
+
                 const ip = (request.socket && request.socket.remoteAddress) || 'unknown';
-                if (!takeToken(newsletterIpLimits, ip, 10, 3600 * 1000)) {
+                if (!isRelayed && !takeToken(newsletterIpLimits, ip, 10, 3600 * 1000)) {
                     return send(response, 429, { error: 'rate limited' });
                 }
-                const source = typeof body.source === 'string' && body.source.length <= 32 ? body.source : 'popup';
+
+                const rawHost = request.headers['x-forwarded-host'] || request.headers['x-host'] || request.headers.host || '';
+                const host = String(rawHost).split(':')[0] || '';
+                const domain = host && host !== '127.0.0.1' && host !== 'localhost' ? host : '';
+                let source = typeof body.source === 'string' && body.source.length <= 64 ? body.source.trim() : '';
+
+                if (source === 'popup' && domain) {
+                    source = domain;
+                } else if (!source && domain) {
+                    source = domain;
+                } else if (!source) {
+                    source = 'popup';
+                }
+
                 await db.query(
                     'INSERT OR IGNORE INTO newsletter_emails (email, source, created_at) VALUES (?, ?, ?)',
                     [email, source, new Date().toISOString()]
                 );
+
+                if (source && source !== 'popup') {
+                    try {
+                        await db.query(
+                            'UPDATE newsletter_emails SET source = source || \',\' || ? WHERE email = ? AND instr(source, ?) = 0',
+                            [source, email, source]
+                        );
+                    } catch (_) {}
+                }
+
+                // Centralized forwarding: if CENTRAL_NEWSLETTER_URL is configured and not self
+                const centralUrl = (process.env.CENTRAL_NEWSLETTER_URL || '').trim();
+                if (centralUrl && !isRelayed) {
+                    try {
+                        const parsedCentral = new URL(centralUrl);
+                        if (parsedCentral.hostname !== host) {
+                            fetch(centralUrl, {
+                                method: 'POST',
+                                headers: {
+                                    'content-type': 'application/json',
+                                    'x-central-secret': process.env.CENTRAL_EMAIL_SECRET || '',
+                                },
+                                body: JSON.stringify({
+                                    email,
+                                    source,
+                                    _relayed: true,
+                                }),
+                                signal: AbortSignal.timeout(5000),
+                            }).catch(() => {});
+                        }
+                    } catch (_) {}
+                }
+
                 return send(response, 200, { ok: true });
             }
 
@@ -1336,6 +1386,44 @@ function startServer({ port = 3001, host = process.env.BIND_HOST || '127.0.0.1',
                     disabled: Number(row.disabled),
                     created_at: row.created_at,
                 });
+            }
+
+            if (request.method === 'GET' && url.pathname === '/api/admin/newsletter') {
+                if (!authed) return send(response, 401, { error: 'unauthorized' });
+                const rows = await db.query(
+                    'SELECT id, email, source, created_at FROM newsletter_emails ORDER BY id DESC'
+                );
+                const breakdown = {};
+                for (const r of rows) {
+                    const domains = String(r.source || 'unknown').split(',');
+                    for (const d of domains) {
+                        const key = d.trim() || 'unknown';
+                        breakdown[key] = (breakdown[key] || 0) + 1;
+                    }
+                }
+                return send(response, 200, {
+                    total: rows.length,
+                    breakdown,
+                    subscribers: rows.slice(0, 300),
+                });
+            }
+
+            if (request.method === 'GET' && url.pathname === '/api/admin/newsletter/export') {
+                if (!authed) return send(response, 401, { error: 'unauthorized' });
+                const rows = await db.query(
+                    'SELECT id, email, source, created_at FROM newsletter_emails ORDER BY id ASC'
+                );
+                const lines = ['id,email,source,created_at'];
+                for (const r of rows) {
+                    lines.push(`${r.id},"${r.email.replace(/"/g, '""')}","${(r.source || '').replace(/"/g, '""')}","${r.created_at || ''}"`);
+                }
+                const csv = lines.join('\n');
+                response.writeHead(200, {
+                    'content-type': 'text/csv; charset=utf-8',
+                    'content-disposition': 'attachment; filename="newsletter-subscribers.csv"',
+                    'cache-control': 'no-store',
+                });
+                return response.end(csv);
             }
 
             if (request.method === 'POST' && url.pathname === '/api/uploads') {
