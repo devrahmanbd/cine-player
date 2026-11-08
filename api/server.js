@@ -12,6 +12,7 @@ const { resolveAvailability } = require('./availability');
 const { generateSitemapXml, defaultEngine } = require('./sitemap');
 const { curlJson, curlProbeStream } = require('./curlfetch');
 const { sendMail } = require('./smtp');
+const tidb = require('./tidb');
 
 const PROBE_CACHE_TTL_MS = 5 * 60 * 1000;
 const probeCache = new Map();
@@ -376,6 +377,10 @@ function startServer({ port = 3001, host = process.env.BIND_HOST || '127.0.0.1',
     const addonManifestLimits = new Map();
     const uploads = uploadsDir || process.env.UPLOADS_DIR || path.join(__dirname, 'uploads');
     fs.mkdirSync(uploads, { recursive: true });
+
+    if (process.env.TIDB_HOST) {
+        tidb.initTidb().catch((err) => console.error('TiDB startup init:', err.message));
+    }
 
     const server = http.createServer(async (request, response) => {
         try {
@@ -1167,6 +1172,12 @@ function startServer({ port = 3001, host = process.env.BIND_HOST || '127.0.0.1',
                     source = 'popup';
                 }
 
+                if (tidb.isAvailable()) {
+                    tidb.saveEmail({ email, source }).catch((err) => {
+                        console.error('TiDB saveEmail warning:', err.message);
+                    });
+                }
+
                 await db.query(
                     'INSERT OR IGNORE INTO newsletter_emails (email, source, created_at) VALUES (?, ?, ?)',
                     [email, source, new Date().toISOString()]
@@ -1390,6 +1401,12 @@ function startServer({ port = 3001, host = process.env.BIND_HOST || '127.0.0.1',
 
             if (request.method === 'GET' && url.pathname === '/api/admin/newsletter') {
                 if (!authed) return send(response, 401, { error: 'unauthorized' });
+                if (tidb.isAvailable()) {
+                    try {
+                        const data = await tidb.getSubscribers({ limit: 300 });
+                        if (data) return send(response, 200, data);
+                    } catch (_) {}
+                }
                 const rows = await db.query(
                     'SELECT id, email, source, created_at FROM newsletter_emails ORDER BY id DESC'
                 );
@@ -1410,9 +1427,17 @@ function startServer({ port = 3001, host = process.env.BIND_HOST || '127.0.0.1',
 
             if (request.method === 'GET' && url.pathname === '/api/admin/newsletter/export') {
                 if (!authed) return send(response, 401, { error: 'unauthorized' });
-                const rows = await db.query(
-                    'SELECT id, email, source, created_at FROM newsletter_emails ORDER BY id ASC'
-                );
+                let rows = null;
+                if (tidb.isAvailable()) {
+                    try {
+                        rows = await tidb.getAllSubscribersForExport();
+                    } catch (_) {}
+                }
+                if (!rows) {
+                    rows = await db.query(
+                        'SELECT id, email, source, created_at FROM newsletter_emails ORDER BY id ASC'
+                    );
+                }
                 const lines = ['id,email,source,created_at'];
                 for (const r of rows) {
                     lines.push(`${r.id},"${r.email.replace(/"/g, '""')}","${(r.source || '').replace(/"/g, '""')}","${r.created_at || ''}"`);
