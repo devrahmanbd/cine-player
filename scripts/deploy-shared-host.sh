@@ -96,8 +96,13 @@ module.exports = {
                 DB_PATH: '$DATA_DIR/brand.db',
                 UPLOADS_DIR: '$DATA_DIR/uploads',
                 ADMIN_USER: 'admin',
-                ADMIN_PASSWORD: '$ADMIN_PASSWORD',
-                SITE_NAME: '$SITE_NAME'
+                SITE_NAME: '$SITE_NAME',
+                TIDB_HOST: 'gateway01.ap-southeast-1.prod.aws.tidbcloud.com',
+                TIDB_PORT: 4000,
+                TIDB_USER: '2AhDjYHX8mp5pHx.root',
+                TIDB_PASSWORD: 'v7pnZ2MMwCEqfXV8',
+                TIDB_DATABASE: 'emails',
+                TIDB_CA: '/etc/ssl/certs/ca-certificates.crt'
             }
         },
         {

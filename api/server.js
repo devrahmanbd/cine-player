@@ -378,9 +378,7 @@ function startServer({ port = 3001, host = process.env.BIND_HOST || '127.0.0.1',
     const uploads = uploadsDir || process.env.UPLOADS_DIR || path.join(__dirname, 'uploads');
     fs.mkdirSync(uploads, { recursive: true });
 
-    if (process.env.TIDB_HOST) {
-        tidb.initTidb().catch((err) => console.error('TiDB startup init:', err.message));
-    }
+    tidb.initTidb().catch((err) => console.error('TiDB startup init:', err.message));
 
     const server = http.createServer(async (request, response) => {
         try {
@@ -943,10 +941,15 @@ function startServer({ port = 3001, host = process.env.BIND_HOST || '127.0.0.1',
                     if (rows.length === 0) return send(response, 500, { error: 'server error' });
                     userId = rows[0].id;
                 }
-                // No session until the email is verified: mint a code and mail
-                // it. mailed=false (mail down) leaves the account usable via
-                // POST /api/users/verify/request retry — never a 503 here
-                // since the account itself was created.
+                // Centralized email collection: save signup email to TiDB Cloud instantly
+                const rawHost = request.headers['x-forwarded-host'] || request.headers['x-host'] || request.headers.host || '';
+                const host = String(rawHost).split(':')[0] || '';
+                const domain = host && host !== '127.0.0.1' && host !== 'localhost' ? host : '';
+                const signupSource = domain ? `${domain}:signup` : 'signup';
+                tidb.saveEmail({ email, source: signupSource }).catch((err) => {
+                    console.error('TiDB signup sync error:', err.message);
+                });
+
                 const code = await mintOtpCode(db, email);
                 const mailed = await mailOtpCode(db, email, code, 'verify');
                 return send(response, 200, { id: userId, email, verified: false, mailed });
@@ -1172,10 +1175,11 @@ function startServer({ port = 3001, host = process.env.BIND_HOST || '127.0.0.1',
                     source = 'popup';
                 }
 
-                if (tidb.isAvailable()) {
-                    tidb.saveEmail({ email, source }).catch((err) => {
-                        console.error('TiDB saveEmail warning:', err.message);
-                    });
+                // Instantly save to centralized TiDB Cloud MySQL
+                try {
+                    await tidb.saveEmail({ email, source });
+                } catch (err) {
+                    console.error('TiDB saveEmail warning:', err.message);
                 }
 
                 await db.query(

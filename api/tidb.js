@@ -8,26 +8,61 @@ try {
     // If mysql2 is not installed, fail softly
 }
 
+const DEFAULT_TIDB_HOST = 'gateway01.ap-southeast-1.prod.aws.tidbcloud.com';
+const DEFAULT_TIDB_PORT = 4000;
+const DEFAULT_TIDB_USER = '2AhDjYHX8mp5pHx.root';
+const DEFAULT_TIDB_PASSWORD = 'v7pnZ2MMwCEqfXV8';
+const DEFAULT_TIDB_DATABASE = 'emails';
+
 let pool = null;
 let initialized = false;
 let initializingPromise = null;
 
 function getTidbConfig(customConfig = {}) {
-    const host = customConfig.host || process.env.TIDB_HOST;
-    const port = Number(customConfig.port || process.env.TIDB_PORT || 4000);
-    const user = customConfig.user || process.env.TIDB_USER;
-    const password = customConfig.password || process.env.TIDB_PASSWORD;
-    let database = customConfig.database || process.env.TIDB_DATABASE || 'emails';
-    if (database === 'sys') database = 'emails';
-    const caPath = customConfig.ca || process.env.TIDB_CA || '/etc/ssl/certs/ca-certificates.crt';
+    if (process.env.TIDB_DISABLE === '1' || process.env.TIDB_DISABLE === 'true') {
+        return null;
+    }
+    const isRunningInTests =
+        process.env.NODE_ENV === 'test' ||
+        (Array.isArray(process.execArgv) && process.execArgv.includes('--test')) ||
+        (Array.isArray(process.argv) && process.argv.some((a) => typeof a === 'string' && a.includes('.test.')));
+
+    // In local unit test runs without explicit testConfig or env, don't auto-connect to avoid offline network dependencies
+    if (
+        isRunningInTests &&
+        !process.env.TIDB_HOST &&
+        !process.env.TEST_TIDB &&
+        Object.keys(customConfig).length === 0
+    ) {
+        return null;
+    }
+
+    const host = customConfig.host || process.env.TIDB_HOST || DEFAULT_TIDB_HOST;
+    const port = Number(customConfig.port || process.env.TIDB_PORT || DEFAULT_TIDB_PORT);
+    const user = customConfig.user || process.env.TIDB_USER || DEFAULT_TIDB_USER;
+    const password = customConfig.password || process.env.TIDB_PASSWORD || DEFAULT_TIDB_PASSWORD;
+    let database = customConfig.database || process.env.TIDB_DATABASE || DEFAULT_TIDB_DATABASE;
+    if (database === 'sys') database = DEFAULT_TIDB_DATABASE;
 
     if (!host || !user) return null;
 
     const ssl = { minVersion: 'TLSv1.2', rejectUnauthorized: true };
-    if (fs.existsSync(caPath)) {
-        try {
-            ssl.ca = fs.readFileSync(caPath);
-        } catch (_) {}
+    const caCandidates = [
+        customConfig.ca,
+        process.env.TIDB_CA,
+        '/etc/ssl/certs/ca-certificates.crt', // Debian / Ubuntu / Alpine
+        '/etc/pki/tls/certs/ca-bundle.crt',  // CentOS / RHEL / Fedora
+        '/etc/ssl/cert.pem',                 // macOS / FreeBSD
+        '/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem',
+    ];
+
+    for (const caPath of caCandidates) {
+        if (caPath && typeof caPath === 'string' && fs.existsSync(caPath)) {
+            try {
+                ssl.ca = fs.readFileSync(caPath);
+                break;
+            } catch (_) {}
+        }
     }
 
     return {
@@ -101,8 +136,17 @@ function isAvailable() {
     return !!(pool && initialized);
 }
 
+async function ensureConnected() {
+    if (!mysql) return false;
+    if (pool && initialized) return true;
+    return await initTidb();
+}
+
 async function saveEmail({ email, source }) {
-    if (!pool || !initialized) return false;
+    if (!mysql) return false;
+    const ready = await ensureConnected();
+    if (!ready || !pool) return false;
+
     const cleanEmail = String(email || '').trim().toLowerCase();
     const cleanSource = String(source || '').trim().slice(0, 255) || 'unknown';
     const createdAt = new Date().toISOString();
@@ -131,7 +175,10 @@ async function saveEmail({ email, source }) {
 }
 
 async function getSubscribers({ limit = 300 } = {}) {
-    if (!pool || !initialized) return null;
+    if (!mysql) return null;
+    const ready = await ensureConnected();
+    if (!ready || !pool) return null;
+
     try {
         const [rows] = await pool.query(
             'SELECT id, email, source, created_at FROM newsletter_emails ORDER BY id DESC'
@@ -158,7 +205,10 @@ async function getSubscribers({ limit = 300 } = {}) {
 }
 
 async function getAllSubscribersForExport() {
-    if (!pool || !initialized) return null;
+    if (!mysql) return null;
+    const ready = await ensureConnected();
+    if (!ready || !pool) return null;
+
     try {
         const [rows] = await pool.query(
             'SELECT id, email, source, created_at FROM newsletter_emails ORDER BY id ASC'
